@@ -37,12 +37,13 @@ const Login: React.FC = () => {
       const msg = err.message || '';
       
       if (msg.includes('Failed to fetch') || msg.includes('fetch failed')) {
-          setError('Falha na conexão. Verifique as configurações do banco de dados.');
-          // Aqui poderíamos sugerir abrir a config, mas o App.tsx gerencia o estado global.
-          // Como estamos dentro do Login, podemos dar um jeito de o usuário consertar.
-          setShowConfig(true);
+          // Se o erro for de fetch, oferecemos a configuração
+          setError('Falha de conexão. O banco de dados pode não estar configurado.');
+          setShowConfig(true); 
       } else if (msg.includes('Invalid login')) {
           setError('Email ou senha incorretos.');
+      } else if (msg.includes('User already registered')) {
+          setError('Usuário já cadastrado. Tente fazer login.');
       } else {
           setError(msg || 'Ocorreu um erro na autenticação.');
       }
@@ -77,7 +78,7 @@ const Login: React.FC = () => {
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 relative">
         <button 
             onClick={() => setShowConfig(true)}
-            className="absolute top-6 right-6 text-gray-600 hover:text-white transition-colors"
+            className="absolute top-6 right-6 text-gray-600 hover:text-white transition-colors p-2 rounded-full hover:bg-white/5"
             title="Configurar Banco de Dados"
         >
             <Settings size={20} />
@@ -93,9 +94,19 @@ const Login: React.FC = () => {
             <p className="text-gray-400 mb-8">Entre para acessar sua área de alta performance.</p>
 
             {error && (
-              <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-xl mb-6 flex items-start gap-3">
-                <AlertTriangle className="text-red-500 shrink-0" size={20} />
-                <p className="text-red-200 text-sm">{error}</p>
+              <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-xl mb-6 flex flex-col gap-2">
+                <div className="flex items-start gap-3">
+                    <AlertTriangle className="text-red-500 shrink-0" size={20} />
+                    <p className="text-red-200 text-sm">{error}</p>
+                </div>
+                {(error.includes('conexão') || error.includes('banco de dados')) && (
+                    <button 
+                        onClick={() => setShowConfig(true)}
+                        className="text-xs text-red-300 underline hover:text-white self-start ml-8"
+                    >
+                        Configurar Conexão Agora
+                    </button>
+                )}
               </div>
             )}
 

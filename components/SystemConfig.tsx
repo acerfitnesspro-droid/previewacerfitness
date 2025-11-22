@@ -3,16 +3,16 @@ import React, { useState } from 'react';
 import { Save, Database, AlertTriangle } from 'lucide-react';
 
 const SystemConfig: React.FC = () => {
-  const [url, setUrl] = useState('');
-  const [key, setKey] = useState('');
+  const [url, setUrl] = useState(localStorage.getItem('acer_supabase_url') || '');
+  const [key, setKey] = useState(localStorage.getItem('acer_supabase_key') || '');
 
   const handleSave = () => {
     if (!url || !key) {
       alert('Por favor, preencha ambos os campos.');
       return;
     }
-    localStorage.setItem('acer_supabase_url', url);
-    localStorage.setItem('acer_supabase_key', key);
+    localStorage.setItem('acer_supabase_url', url.trim());
+    localStorage.setItem('acer_supabase_key', key.trim());
     window.location.reload();
   };
 
@@ -23,21 +23,20 @@ const SystemConfig: React.FC = () => {
           <Database className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <h1 className="text-3xl font-black text-white">Configuração do Sistema</h1>
           <p className="text-gray-400 mt-2 text-sm">
-            Detectamos que o banco de dados não está conectado. Para resolver o erro <span className="text-red-400 font-mono">Failed to fetch</span>, insira suas credenciais do Supabase abaixo.
+            Para corrigir o erro <span className="text-red-400 font-mono">Failed to fetch</span>, conecte seu banco de dados Supabase.
           </p>
         </div>
 
         <div className="bg-yellow-900/20 border border-yellow-600/30 p-4 rounded-xl mb-6 flex items-start gap-3">
            <AlertTriangle className="text-yellow-500 shrink-0 mt-1" size={18} />
            <p className="text-xs text-yellow-200">
-             Você pode encontrar essas informações no painel do Supabase em: <br/>
-             <strong>Project Settings &gt; API</strong>.
+             Insira a <strong>URL</strong> e a <strong>ANON KEY</strong> do seu projeto Supabase.
            </p>
         </div>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-white text-xs font-bold uppercase mb-2">Project URL</label>
+            <label className="block text-white text-xs font-bold uppercase mb-2">URL do Projeto (Supabase)</label>
             <input 
               type="text" 
               value={url}
@@ -48,7 +47,7 @@ const SystemConfig: React.FC = () => {
           </div>
           
           <div>
-            <label className="block text-white text-xs font-bold uppercase mb-2">API Key (anon/public)</label>
+            <label className="block text-white text-xs font-bold uppercase mb-2">Chave API (Anon/Public)</label>
             <input 
               type="password" 
               value={key}

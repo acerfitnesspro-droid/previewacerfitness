@@ -20,6 +20,8 @@ const clientKey = activeSupabaseKey || 'placeholder-key';
 export const supabase = createClient(clientUrl, clientKey);
 
 export const isSupabaseConfigured = () => {
-  return activeSupabaseUrl && activeSupabaseUrl !== 'https://placeholder.supabase.co' && 
-         activeSupabaseKey && activeSupabaseKey !== 'placeholder-key';
+  // Verifica se tem URL e Key e se NÃO são os placeholders ou strings vazias
+  const hasUrl = activeSupabaseUrl && activeSupabaseUrl !== 'https://placeholder.supabase.co' && activeSupabaseUrl !== '';
+  const hasKey = activeSupabaseKey && activeSupabaseKey !== 'placeholder-key' && activeSupabaseKey !== '';
+  return hasUrl && hasKey;
 };

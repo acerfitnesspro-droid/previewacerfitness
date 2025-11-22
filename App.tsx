@@ -33,21 +33,21 @@ const App: React.FC = () => {
   const [needsConfig, setNeedsConfig] = useState(false);
 
   useEffect(() => {
-    // Verifica se o Supabase está configurado corretamente
+    // 1. Verificar se o Supabase está configurado
     if (!isSupabaseConfigured()) {
       setNeedsConfig(true);
       setLoadingAuth(false);
       return;
     }
 
-    // 1. Verificar sessão ativa
+    // 2. Verificar sessão ativa
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session) fetchProfile(session.user.id);
       else setLoadingAuth(false);
     });
 
-    // 2. Ouvir mudanças na autenticação
+    // 3. Ouvir mudanças na autenticação
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -72,12 +72,10 @@ const App: React.FC = () => {
         .single();
 
       if (error) {
-        // Se o erro for de conexão/fetch, pode ser configuração errada
+        // Se erro de conexão, pode ser config inválida
         if (error.message && (error.message.includes('fetch') || error.message.includes('connection'))) {
             console.error("Erro crítico de conexão:", error);
-            // Opcional: Forçar tela de config se o erro for persistente
         }
-        // Se não achou perfil, vai pro onboarding
         setView('onboarding');
       } else if (data) {
         setUser({
@@ -151,7 +149,7 @@ const App: React.FC = () => {
     </button>
   );
 
-  // Se precisar de configuração, exibe a tela de config antes de qualquer coisa
+  // Se a URL/Key do Supabase não estiverem configuradas, mostra a tela de config
   if (needsConfig) {
     return <SystemConfig />;
   }
