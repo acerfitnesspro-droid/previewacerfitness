@@ -4,7 +4,7 @@ import { generateWeeklyWorkout, swapExercise } from '../services/geminiService';
 import { supabase } from '../lib/supabase';
 import { 
   Dumbbell, Clock, MapPin, Activity, Play, CheckCircle, 
-  RotateCcw, Timer, ArrowLeft, History, Save, Trophy, Eye, X, Info, PlayCircle
+  RotateCcw, Timer, ArrowLeft, History, Save, Trophy, Eye, X, Info, PlayCircle, RefreshCcw
 } from 'lucide-react';
 
 interface Props {
@@ -19,21 +19,31 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
   
   // Active Workout State
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
-  const [completedSets, setCompletedSets] = useState<Set<string>>(new Set()); // "exerciseName-setIndex"
-  const [activeTimer, setActiveTimer] = useState<number | null>(null); // seconds
+  const [completedSets, setCompletedSets] = useState<Set<string>>(new Set());
+  const [activeTimer, setActiveTimer] = useState<number | null>(null);
   const [timerRunning, setTimerRunning] = useState(false);
-  const [loggedWeights, setLoggedWeights] = useState<Record<string, string>>({}); // "exerciseName-setIndex": "20"
+  const [loggedWeights, setLoggedWeights] = useState<Record<string, string>>({});
   
   // History & Modals
-  const [weightHistory, setWeightHistory] = useState<Record<string, number>>({}); // "exerciseName": max_weight
+  const [weightHistory, setWeightHistory] = useState<Record<string, number>>({});
   const [swappingExerciseId, setSwappingExerciseId] = useState<string | null>(null);
-  const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null); // For modal
+  const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
 
   const fetchWorkout = async () => {
     setLoading(true);
-    const result = await generateWeeklyWorkout(user);
-    setPlan(result);
-    setLoading(false);
+    try {
+        const result = await generateWeeklyWorkout(user);
+        if (result) {
+            setPlan(result);
+        } else {
+            // Fallback if generation fails silently
+            alert("Erro ao gerar treino. Tentando novamente.");
+        }
+    } catch (error) {
+        console.error("Falha na geração:", error);
+    } finally {
+        setLoading(false);
+    }
   };
 
   // Load plan and history
@@ -81,7 +91,7 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
           const restoredCompleted = new Set<string>();
           const restoredWeights: Record<string, string> = {};
           logs.forEach((log: any) => {
-             const id = `${log.exercise_name}-${log.set_number - 1}`; // set_number is 1-based in DB
+             const id = `${log.exercise_name}-${log.set_number - 1}`;
              restoredCompleted.add(id);
              if (log.weight) restoredWeights[id] = log.weight.toString();
           });
@@ -98,7 +108,6 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
     if (!user.id) return;
     
     try {
-      // Get the max weight used for each exercise in the last 300 logs
       const { data, error } = await supabase
         .from('workout_logs')
         .select('exercise_name, weight')
@@ -119,7 +128,7 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
     }
   };
 
-  // Timer Logic with Sound
+  // Timer Logic
   useEffect(() => {
     let interval: any;
     if (timerRunning && activeTimer !== null && activeTimer > 0) {
@@ -153,6 +162,10 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
         alert("Erro ao iniciar. Verifique sua conexão.");
         return;
     }
+    if (!currentDay.exercises || currentDay.exercises.length === 0) {
+        alert("Este dia não possui exercícios. Tente recarregar o treino.");
+        return;
+    }
 
     try {
       const { data, error } = await supabase
@@ -170,13 +183,10 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
         setActiveSessionId(data.id);
         setIsWorkoutActive(true);
         
-        // Pre-fill weights based on history OR suggestion logic
         const initialWeights: Record<string, string> = {};
         currentDay.exercises.forEach(ex => {
            const historyWeight = weightHistory[ex.name];
            const suggested = ex.suggestedWeight ? ex.suggestedWeight.toString() : '0';
-           
-           // Use history if available, otherwise use system suggestion
            const weightToUse = historyWeight ? historyWeight.toString() : suggested;
 
            if (weightToUse !== '0') {
@@ -204,7 +214,7 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
       setIsWorkoutActive(false);
       setCompletedSets(new Set());
       setLoggedWeights({});
-      fetchExerciseHistory(); // Refresh history
+      fetchExerciseHistory();
       setActiveSessionId(null);
     } catch (err) {
       console.error("Erro ao finalizar:", err);
@@ -217,7 +227,6 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
     
     if (!activeSessionId) return;
     
-    // Optimistic UI update
     const newCompleted = new Set(completedSets);
     const isCompleting = !newCompleted.has(id);
     
@@ -228,7 +237,6 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
     }
     setCompletedSets(newCompleted);
 
-    // Database Sync
     try {
       if (isCompleting) {
         await supabase
@@ -261,17 +269,16 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
       newPlan.split[dayIndex].exercises[exIndex] = newExercise;
       setPlan(newPlan);
     } else {
-      alert("Não foi possível trocar o exercício no momento.");
+      alert("Sem opções alternativas para este grupo muscular no momento.");
     }
     setSwappingExerciseId(null);
   };
 
-  // Helper function for image error
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    e.currentTarget.src = 'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?w=400&q=80'; // Fallback gym image
+    e.currentTarget.src = 'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?w=400&q=80';
   };
 
-  // --- EXERCISE MODAL COMPONENT ---
+  // --- EXERCISE MODAL ---
   const ExerciseInfoModal = () => {
     if (!selectedExercise) return null;
     
@@ -325,18 +332,6 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
                       <h4 className="text-red-400 font-bold text-xs uppercase mb-1 flex items-center gap-1"><Info size={12}/> Dica do Treinador</h4>
                       <p className="text-red-100 text-sm italic">"{selectedExercise.tips}"</p>
                    </div>
-
-                   {selectedExercise.suggestedWeight && selectedExercise.suggestedWeight > 0 && (
-                      <div className="flex items-center gap-3 bg-white/5 p-3 rounded-lg">
-                         <div className="bg-white/10 p-2 rounded-full">
-                            <Dumbbell size={16} className="text-white"/>
-                         </div>
-                         <div>
-                            <p className="text-xs text-gray-400 uppercase">Carga Sugerida</p>
-                            <p className="text-white font-bold">{selectedExercise.suggestedWeight}kg</p>
-                         </div>
-                      </div>
-                   )}
                 </div>
                 
                 <button onClick={() => setSelectedExercise(null)} className="w-full bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-xl mt-6 transition-colors">
@@ -355,8 +350,8 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
            <div className="absolute inset-0 bg-red-600 blur-xl opacity-20 rounded-full"></div>
            <Activity className="w-20 h-20 mb-6 text-red-500 relative z-10" />
         </div>
-        <h2 className="text-2xl font-black tracking-tighter">MONTANDO ESTRATÉGIA</h2>
-        <p className="text-pink-200 mt-2 text-sm uppercase tracking-widest">Calculando Periodização...</p>
+        <h2 className="text-2xl font-black tracking-tighter">GERANDO FICHA DE TREINO</h2>
+        <p className="text-pink-200 mt-2 text-sm uppercase tracking-widest">Calculando volumes e cargas...</p>
       </div>
     );
   }
@@ -372,7 +367,7 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
 
   const currentDay = plan.split[activeDayIndex];
 
-  // View: Active Workout Mode
+  // --- ACTIVE WORKOUT VIEW ---
   if (isWorkoutActive && currentDay) {
     const totalSets = currentDay.exercises.reduce((acc, ex) => acc + ex.sets, 0);
     const progress = totalSets > 0 ? (completedSets.size / totalSets) * 100 : 0;
@@ -381,7 +376,6 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
       <div className="fixed inset-0 bg-[#0f0505] z-50 overflow-y-auto pb-20 animate-fade-in">
         <ExerciseInfoModal />
         
-        {/* Active Header */}
         <div className="sticky top-0 bg-black/90 backdrop-blur-lg border-b border-red-900/50 p-4 z-30 shadow-2xl">
           <div className="flex justify-between items-center mb-2">
              <button onClick={() => setIsWorkoutActive(false)} className="text-gray-400 hover:text-white">
@@ -395,7 +389,6 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
               <div className="h-full bg-gradient-to-r from-red-600 to-pink-600 transition-all duration-500" style={{ width: `${progress}%` }}></div>
           </div>
           
-          {/* Floating Timer Overlay */}
           {activeTimer !== null && activeTimer >= 0 && (
              <div className={`absolute top-20 left-1/2 transform -translate-x-1/2 px-6 py-2 rounded-full shadow-xl flex items-center gap-2 font-mono text-xl font-bold z-40 border transition-colors ${
                 activeTimer === 0 ? 'bg-green-600 text-white border-green-400 animate-bounce' : 'bg-red-600 text-white border-white/20'
@@ -407,9 +400,8 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
         </div>
 
         <div className="p-4 space-y-8">
-          {currentDay.exercises?.map((exercise, exIndex) => (
+          {currentDay.exercises.map((exercise, exIndex) => (
             <div key={exIndex} className="relative">
-               {/* Exercise Header */}
                <div className="flex justify-between items-start mb-4">
                  <div className="flex-1 mr-2">
                    <div className="flex items-center gap-2 mb-1">
@@ -424,13 +416,7 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
                        <span className="text-green-400 flex items-center ml-2 bg-green-900/20 px-2 rounded border border-green-900/50">
                          <History size={10} className="mr-1"/> Max: {weightHistory[exercise.name]}kg
                        </span>
-                     ) : (
-                        exercise.suggestedWeight && exercise.suggestedWeight > 0 && (
-                           <span className="text-gray-500 ml-2 bg-white/10 px-2 rounded border border-white/5 text-[10px]">
-                              Sugestão: {exercise.suggestedWeight}kg
-                           </span>
-                        )
-                     )}
+                     ) : null}
                    </p>
                  </div>
                  <button 
@@ -438,15 +424,14 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
                    disabled={swappingExerciseId === (exercise.id || String(exIndex))}
                    className="p-2 bg-white/5 rounded-lg text-gray-400 hover:text-red-400 disabled:opacity-50"
                  >
-                   {swappingExerciseId === (exercise.id || String(exIndex)) ? <Activity className="animate-spin" size={20}/> : <RotateCcw size={20}/>}
+                   {swappingExerciseId === (exercise.id || String(exIndex)) ? <Activity className="animate-spin" size={20}/> : <RefreshCcw size={20}/>}
                  </button>
                </div>
 
-               {/* Sets Grid */}
                <div className="space-y-3">
                   <div className="grid grid-cols-[40px_1fr_1fr_40px] gap-2 text-xs text-gray-500 uppercase font-bold px-2">
                      <div className="text-center">Set</div>
-                     <div className="text-center">Carga (Kg)</div>
+                     <div className="text-center">Kg</div>
                      <div className="text-center">Reps</div>
                      <div className="text-center">Ok</div>
                   </div>
@@ -457,7 +442,6 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
                     const currentVal = loggedWeights[setId] ? parseFloat(loggedWeights[setId]) : 0;
                     const isPR = weightHistory[exercise.name] && currentVal > weightHistory[exercise.name];
                     
-                    // Determine placeholder based on history OR suggestion
                     let placeholder = "-";
                     if (weightHistory[exercise.name]) placeholder = `${weightHistory[exercise.name]}`;
                     else if (exercise.suggestedWeight) placeholder = `${exercise.suggestedWeight}`;
@@ -494,7 +478,6 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
                   })}
                </div>
 
-               {/* Actions */}
                <div className="mt-4 flex gap-3">
                  <button 
                     onClick={() => startRestTimer(exercise.restSeconds)}
@@ -523,12 +506,11 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
     );
   }
 
-  // View: Standard Dashboard
+  // --- DASHBOARD VIEW ---
   return (
     <div className="space-y-8 pb-20">
       <ExerciseInfoModal />
       
-      {/* Header */}
       <div className="relative bg-gradient-to-r from-red-900 to-black p-6 rounded-3xl border border-red-500/30 overflow-hidden">
          <div className="absolute top-0 right-0 w-64 h-64 bg-red-600 blur-[100px] opacity-20 pointer-events-none"></div>
          <h2 className="text-2xl md:text-3xl font-black text-white mb-2 relative z-10 uppercase italic leading-tight">{plan.title}</h2>
@@ -553,7 +535,6 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
          </div>
       </div>
 
-      {/* Day Selector */}
       <div className="flex overflow-x-auto gap-3 pb-2 scrollbar-thin">
         {plan.split.map((day, idx) => (
           <button
@@ -570,7 +551,6 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
         ))}
       </div>
 
-      {/* Active Day Preview */}
       <div className="space-y-4">
          <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-4">
             <div>
@@ -586,7 +566,7 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
          </div>
 
          <div className="grid gap-3">
-            {currentDay?.exercises?.length > 0 ? currentDay.exercises.map((exercise, idx) => (
+            {currentDay?.exercises && currentDay.exercises.length > 0 ? currentDay.exercises.map((exercise, idx) => (
                <div key={idx} className="bg-white/5 hover:bg-white/10 p-4 rounded-xl border border-white/5 transition-colors flex items-center justify-between group">
                   <div className="flex items-center gap-4">
                      <div className="w-16 h-16 rounded-lg overflow-hidden bg-black/50 border border-white/10 shrink-0 relative">
@@ -607,9 +587,6 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
                         <div className="flex gap-3 text-xs md:text-sm text-gray-400 mt-1">
                            <span className="flex items-center gap-1"><RotateCcw size={12}/> {exercise.sets} Sets</span>
                            <span className="flex items-center gap-1"><Dumbbell size={12}/> {exercise.reps}</span>
-                           {weightHistory[exercise.name] && (
-                             <span className="flex items-center gap-1 text-green-500 ml-2"><History size={12}/> Max: {weightHistory[exercise.name]}kg</span>
-                           )}
                         </div>
                      </div>
                   </div>
@@ -622,22 +599,12 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
                   </button>
                </div>
             )) : (
-              <div className="text-gray-400 text-center py-4">Nenhum exercício carregado para este dia.</div>
+              <div className="text-gray-400 text-center py-8 border border-dashed border-gray-700 rounded-xl">
+                  <p>Nenhum exercício encontrado para este dia.</p>
+                  <button onClick={fetchWorkout} className="text-red-400 text-sm underline mt-2">Recarregar Ficha</button>
+              </div>
             )}
          </div>
-      </div>
-
-      <div className="bg-gradient-to-r from-gray-900 to-black p-6 rounded-2xl border border-white/10 flex items-center justify-between">
-         <div>
-            <h4 className="text-white font-bold mb-1">Não gostou da divisão?</h4>
-            <p className="text-sm text-gray-400">O sistema pode recalcular a estratégia.</p>
-         </div>
-         <button 
-           onClick={fetchWorkout}
-           className="text-sm font-bold text-red-400 hover:text-red-300 border border-red-500/30 px-4 py-2 rounded-lg hover:bg-red-900/20 transition-colors"
-         >
-            Regerar Treino
-         </button>
       </div>
     </div>
   );
