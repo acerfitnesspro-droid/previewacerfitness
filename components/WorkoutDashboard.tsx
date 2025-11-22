@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { UserProfile, WeeklyWorkoutPlan, Exercise } from '../types';
 import { generateWeeklyWorkout, swapExercise } from '../services/geminiService';
 import { supabase } from '../lib/supabase';
 import { 
   Dumbbell, Clock, MapPin, Activity, Play, CheckCircle, 
-  RotateCcw, Timer, ArrowLeft, History, Save, Trophy, X, Info, PlayCircle, RefreshCcw
+  RotateCcw, Timer, ArrowLeft, History, Save, Trophy, X, Info, PlayCircle, RefreshCcw, AlertTriangle
 } from 'lucide-react';
 
 interface Props {
@@ -36,7 +37,6 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
         if (result) {
             setPlan(result);
         } else {
-            // Fallback if generation fails silently
             alert("Erro ao gerar treino. Tentando novamente.");
         }
     } catch (error) {
@@ -61,7 +61,6 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
     const checkActiveSession = async () => {
       if (!user.id) return;
       
-      // 1. Check for unfinished sessions
       const { data: session } = await supabase
         .from('workout_sessions')
         .select('id, day_name, started_at')
@@ -75,13 +74,11 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
         setActiveSessionId(session.id);
         setIsWorkoutActive(true);
         
-        // Try to match day index
         if (plan) {
            const dayIdx = plan.split.findIndex(d => d.dayName === session.day_name);
            if (dayIdx !== -1) setActiveDayIndex(dayIdx);
         }
         
-        // 2. Load logs for this active session
         const { data: logs } = await supabase
           .from('workout_logs')
           .select('*')
@@ -165,7 +162,7 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
         return;
     }
     if (!currentDay.exercises || currentDay.exercises.length === 0) {
-        alert("Este dia não possui exercícios. Tente recarregar o treino.");
+        alert("Este dia não possui exercícios gerados.");
         return;
     }
 
@@ -225,6 +222,12 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
       console.error("Erro ao finalizar:", err);
       setIsWorkoutActive(false);
     }
+  };
+
+  // Botão de pânico para forçar saída
+  const forceExitWorkout = () => {
+      setIsWorkoutActive(false);
+      setActiveSessionId(null);
   };
 
   const toggleSetComplete = async (exerciseName: string, muscleGroup: string, setIndex: number, reps: string) => {
@@ -377,16 +380,19 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
     const progress = totalSets > 0 ? (completedSets.size / totalSets) * 100 : 0;
 
     return (
-      <div className="fixed inset-0 bg-[#0f0505] z-50 overflow-y-auto pb-20 animate-fade-in">
+      <div className="fixed inset-0 bg-[#0f0505] z-50 flex flex-col animate-fade-in">
         <ExerciseInfoModal />
         
-        <div className="sticky top-0 bg-black/90 backdrop-blur-lg border-b border-red-900/50 p-4 z-30 shadow-2xl">
+        {/* Header - Fixed Height */}
+        <div className="flex-none bg-black/95 backdrop-blur-lg border-b border-red-900/50 p-4 z-30 shadow-2xl relative">
           <div className="flex justify-between items-center mb-2">
-             <button onClick={() => setIsWorkoutActive(false)} className="text-gray-400 hover:text-white">
+             <button onClick={() => setIsWorkoutActive(false)} className="text-gray-400 hover:text-white p-2" title="Minimizar">
                 <ArrowLeft size={24} />
              </button>
-             <h3 className="text-white font-bold text-lg text-center truncate max-w-[200px]">{currentDay.dayName}</h3>
-             <div className="w-6"></div>
+             <h3 className="text-white font-bold text-lg text-center truncate flex-1 px-2">{currentDay.dayName}</h3>
+             <button onClick={forceExitWorkout} className="text-red-500 hover:text-red-400 p-2" title="Encerrar Sessão">
+                <X size={24} />
+             </button>
           </div>
           
           <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden">
@@ -394,7 +400,7 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
           </div>
           
           {activeTimer !== null && activeTimer >= 0 && (
-             <div className={`absolute top-20 left-1/2 transform -translate-x-1/2 px-6 py-2 rounded-full shadow-xl flex items-center gap-2 font-mono text-xl font-bold z-40 border transition-colors ${
+             <div className={`absolute -bottom-6 left-1/2 transform -translate-x-1/2 px-6 py-2 rounded-full shadow-xl flex items-center gap-2 font-mono text-xl font-bold z-50 border transition-colors ${
                 activeTimer === 0 ? 'bg-green-600 text-white border-green-400 animate-bounce' : 'bg-red-600 text-white border-white/20'
              }`}>
                 <Timer size={20} />
@@ -403,24 +409,25 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
           )}
         </div>
 
-        <div className="p-4 space-y-8">
-          {currentDay.exercises.length === 0 ? (
-             <div className="flex flex-col items-center justify-center py-20 text-center">
-                <Activity className="w-16 h-16 text-gray-600 mb-4" />
-                <h3 className="text-xl font-bold text-white mb-2">Treino Vazio ou Concluído</h3>
-                <p className="text-gray-400 mb-6 max-w-xs">Parece que não há exercícios carregados para este dia ou houve um erro de sincronização.</p>
+        {/* Content - Scrollable Area */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-8 pb-32">
+          {(!currentDay.exercises || currentDay.exercises.length === 0) ? (
+             <div className="flex flex-col items-center justify-center py-20 text-center h-full">
+                <AlertTriangle className="w-16 h-16 text-yellow-500 mb-4" />
+                <h3 className="text-xl font-bold text-white mb-2">Treino não carregado corretamente</h3>
+                <p className="text-gray-400 mb-6 max-w-xs">Os exercícios não apareceram para este dia. Tente recarregar.</p>
                 <button 
-                  onClick={handleFinishWorkout} 
+                  onClick={forceExitWorkout} 
                   className="bg-red-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-red-700"
                 >
-                   Encerrar Sessão
+                   Voltar ao Menu
                 </button>
              </div>
           ) : (
              <>
               {currentDay.exercises.map((exercise, exIndex) => (
                 <div key={exIndex} className="relative">
-                   <div className="flex justify-between items-start mb-4">
+                   <div className="flex justify-between items-start mb-4 pt-4">
                      <div className="flex-1 mr-2">
                        <div className="flex items-center gap-2 mb-1">
                           <h4 className="text-xl font-bold text-white leading-tight">{exercise.name}</h4>
@@ -454,7 +461,7 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
                          <div className="text-center">Ok</div>
                       </div>
                       
-                      {Array.from({ length: exercise.sets }).map((_, setIndex) => {
+                      {Array.from({ length: exercise.sets || 3 }).map((_, setIndex) => {
                         const setId = `${exercise.name}-${setIndex}`;
                         const isDone = completedSets.has(setId);
                         const currentVal = loggedWeights[setId] ? parseFloat(loggedWeights[setId]) : 0;
@@ -515,7 +522,7 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
 
               <button 
                 onClick={handleFinishWorkout}
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-black text-xl py-6 rounded-2xl shadow-lg shadow-green-900/50 transition-transform active:scale-95 uppercase tracking-widest flex items-center justify-center gap-2"
+                className="w-full bg-green-600 hover:bg-green-700 text-white font-black text-xl py-6 rounded-2xl shadow-lg shadow-green-900/50 transition-transform active:scale-95 uppercase tracking-widest flex items-center justify-center gap-2 mt-8"
               >
                  <Save /> Finalizar e Salvar
               </button>
