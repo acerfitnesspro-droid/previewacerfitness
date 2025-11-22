@@ -5,7 +5,7 @@ import { generateWeeklyWorkout, swapExercise } from '../services/geminiService';
 import { supabase } from '../lib/supabase';
 import { 
   Dumbbell, Clock, MapPin, Activity, Play, CheckCircle, 
-  RotateCcw, Flame, Timer, ChevronRight, ArrowLeft, History, Save, Trophy, Eye, X, Info
+  RotateCcw, Flame, Timer, ChevronRight, ArrowLeft, History, Save, Trophy, Eye, X, Info, ImageOff
 } from 'lucide-react';
 
 interface Props {
@@ -270,6 +270,11 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
     setSwappingExerciseId(null);
   };
 
+  // Helper function for image error
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    e.currentTarget.src = 'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?w=400&q=80'; // Fallback gym image
+  };
+
   // --- EXERCISE MODAL COMPONENT ---
   const ExerciseInfoModal = () => {
     if (!selectedExercise) return null;
@@ -281,24 +286,30 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
                 <X size={20} />
              </button>
              
-             <div className="h-64 bg-black relative flex items-center justify-center overflow-hidden group">
+             <div className="h-64 bg-black relative flex items-center justify-center overflow-hidden group bg-gradient-to-b from-gray-900 to-black">
                 {selectedExercise.gifUrl ? (
-                   <img src={selectedExercise.gifUrl} alt={selectedExercise.name} className="w-full h-full object-cover opacity-90 group-hover:scale-105 transition-transform duration-500" />
+                   <img 
+                     src={selectedExercise.gifUrl} 
+                     alt={selectedExercise.name} 
+                     className="w-full h-full object-cover opacity-90 group-hover:scale-105 transition-transform duration-500" 
+                     referrerPolicy="no-referrer"
+                     onError={handleImageError}
+                   />
                 ) : (
-                   <div className="text-center">
+                   <div className="text-center p-6">
                       <Dumbbell size={48} className="text-red-500 mx-auto mb-2 opacity-50" />
-                      <span className="text-gray-500 text-sm">Imagem Indisponível</span>
+                      <span className="text-gray-500 text-sm">Visualização Indisponível</span>
                    </div>
                 )}
                 <div className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-[#1a0505] to-transparent h-24"></div>
                 
-                <div className="absolute bottom-4 left-6 z-10">
+                <div className="absolute bottom-4 left-6 z-10 pr-4">
                    <h3 className="text-2xl font-black text-white leading-none mb-1 shadow-black drop-shadow-md">{selectedExercise.name}</h3>
                    <span className="text-red-400 text-xs font-bold uppercase tracking-wider bg-black/50 px-2 py-1 rounded">{selectedExercise.muscleGroup}</span>
                 </div>
              </div>
              
-             <div className="p-6 relative z-10 max-h-[50vh] overflow-y-auto">
+             <div className="p-6 relative z-10 max-h-[50vh] overflow-y-auto scrollbar-thin">
                 <div className="space-y-6">
                    <div>
                       <h4 className="text-white font-bold text-sm mb-3 flex items-center gap-2 border-b border-white/10 pb-2">
@@ -307,8 +318,8 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
                       <ul className="space-y-3">
                          {selectedExercise.instructions.split('\n').map((step, i) => (
                             <li key={i} className="text-gray-300 text-sm leading-relaxed flex gap-3">
-                               <span className="text-red-500 font-bold">{i+1}.</span>
-                               {step.replace(/^\d+\.\s*/, '')}
+                               <span className="text-red-500 font-bold shrink-0">{i+1}.</span>
+                               <span>{step.replace(/^\d+\.\s*/, '')}</span>
                             </li>
                          ))}
                       </ul>
@@ -582,11 +593,17 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
             {currentDay?.exercises?.length > 0 ? currentDay.exercises.map((exercise, idx) => (
                <div key={idx} className="bg-white/5 hover:bg-white/10 p-4 rounded-xl border border-white/5 transition-colors flex items-center justify-between group">
                   <div className="flex items-center gap-4">
-                     <div className="w-12 h-12 rounded-lg overflow-hidden bg-black/50 border border-white/10 shrink-0">
+                     <div className="w-16 h-16 rounded-lg overflow-hidden bg-black/50 border border-white/10 shrink-0 relative">
                         {exercise.gifUrl ? (
-                           <img src={exercise.gifUrl} alt={exercise.name} className="w-full h-full object-cover" />
+                           <img 
+                             src={exercise.gifUrl} 
+                             alt={exercise.name} 
+                             className="w-full h-full object-cover" 
+                             referrerPolicy="no-referrer"
+                             onError={handleImageError}
+                           />
                         ) : (
-                           <div className="w-full h-full flex items-center justify-center text-gray-500"><Dumbbell size={16}/></div>
+                           <div className="w-full h-full flex items-center justify-center text-gray-500"><Dumbbell size={20}/></div>
                         )}
                      </div>
                      <div>

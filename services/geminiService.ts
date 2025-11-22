@@ -1,13 +1,7 @@
 
-import { GoogleGenAI } from "@google/genai";
 import { UserProfile, WeeklyWorkoutPlan, DietPlan, Exercise, Meal, UserGoal, UserLevel } from "../types";
 
-const apiKey = process.env.API_KEY;
-// Initialize conditionally. Only Chat/Copy use AI. Workouts are now 100% Static DB.
-const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
-const MODEL_NAME = "gemini-2.5-flash";
-
-// --- BANCO DE DADOS ESTÁTICO DE EXERCÍCIOS (COM IMAGENS) ---
+// --- BANCO DE DADOS ESTÁTICO DE EXERCÍCIOS (COM GIFS/IMAGENS) ---
 
 interface DBExercise {
   id: string;
@@ -16,11 +10,11 @@ interface DBExercise {
   type: 'Compound' | 'Isolation' | 'Cardio';
   locations: string[];
   difficulty: UserLevel[];
-  gifUrl: string; // URL estática obrigatória
-  baseWeight: number; // Peso base para iniciantes em kg
+  gifUrl: string; 
+  baseWeight: number; 
 }
 
-// Imagens reais do Unsplash para representar os exercícios
+// Lista curada de exercícios com URLs de visualização
 const EXERCISE_DB: DBExercise[] = [
   // --- PEITO ---
   { 
@@ -30,8 +24,8 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Compound', 
     locations: ['Academia'], 
     difficulty: [UserLevel.INTERMEDIATE, UserLevel.ADVANCED],
-    gifUrl: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?q=80&w=2070&auto=format&fit=crop",
-    baseWeight: 10 // + barra (geralmente 20kg totais)
+    gifUrl: "https://media.giphy.com/media/l4KibWpBGWchSqCRy/giphy.gif", 
+    baseWeight: 10 
   },
   { 
     id: 'dumbbell_press', 
@@ -40,7 +34,7 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Compound', 
     locations: ['Academia', 'Casa'], 
     difficulty: [UserLevel.BEGINNER, UserLevel.INTERMEDIATE, UserLevel.ADVANCED], 
-    gifUrl: "https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?q=80&w=2070&auto=format&fit=crop",
+    gifUrl: "https://media.giphy.com/media/z0w9gXhW9d6yk/giphy.gif",
     baseWeight: 8 
   },
   { 
@@ -50,7 +44,7 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Compound', 
     locations: ['Academia', 'Casa'], 
     difficulty: [UserLevel.INTERMEDIATE, UserLevel.ADVANCED], 
-    gifUrl: "https://plus.unsplash.com/premium_photo-1664109999537-088e7d964da2?q=80&w=2071&auto=format&fit=crop",
+    gifUrl: "https://media.giphy.com/media/26AHG5KGFxSkQLBV6/giphy.gif",
     baseWeight: 6 
   },
   { 
@@ -60,7 +54,7 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Compound', 
     locations: ['Casa', 'Ar Livre', 'Academia'], 
     difficulty: [UserLevel.BEGINNER, UserLevel.INTERMEDIATE], 
-    gifUrl: "https://images.unsplash.com/photo-1598971639058-79290949e298?q=80&w=2070&auto=format&fit=crop",
+    gifUrl: "https://media.giphy.com/media/K61Cq32d22K5y/giphy.gif",
     baseWeight: 0 
   },
   { 
@@ -70,7 +64,7 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Isolation', 
     locations: ['Academia'], 
     difficulty: [UserLevel.BEGINNER, UserLevel.INTERMEDIATE], 
-    gifUrl: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=2070&auto=format&fit=crop",
+    gifUrl: "https://media.giphy.com/media/3o7TqyH91v0LdsN09q/giphy.gif",
     baseWeight: 15 
   },
 
@@ -82,7 +76,7 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Compound', 
     locations: ['Academia', 'Ar Livre'], 
     difficulty: [UserLevel.ADVANCED], 
-    gifUrl: "https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?q=80&w=2000&auto=format&fit=crop",
+    gifUrl: "https://media.giphy.com/media/eM85pXv6u1YTC/giphy.gif",
     baseWeight: 0 
   },
   { 
@@ -92,7 +86,7 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Compound', 
     locations: ['Academia'], 
     difficulty: [UserLevel.BEGINNER, UserLevel.INTERMEDIATE], 
-    gifUrl: "https://images.unsplash.com/photo-1605296867304-6f2b49281b74?q=80&w=2070&auto=format&fit=crop",
+    gifUrl: "https://media.giphy.com/media/111ebonMs90YLu/giphy.gif",
     baseWeight: 20 
   },
   { 
@@ -102,7 +96,7 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Compound', 
     locations: ['Academia', 'Casa'], 
     difficulty: [UserLevel.BEGINNER, UserLevel.INTERMEDIATE], 
-    gifUrl: "https://images.unsplash.com/photo-1581009146145-b5ef050c2e1e?q=80&w=2070&auto=format&fit=crop",
+    gifUrl: "https://media.giphy.com/media/Topw2Z9Y1s61a/giphy.gif",
     baseWeight: 8 
   },
   { 
@@ -112,7 +106,7 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Compound', 
     locations: ['Academia'], 
     difficulty: [UserLevel.BEGINNER, UserLevel.INTERMEDIATE], 
-    gifUrl: "https://images.unsplash.com/photo-1598532163257-ae3c6b2524b6?q=80&w=2063&auto=format&fit=crop",
+    gifUrl: "https://media.giphy.com/media/G6qX9mC6CkHAs/giphy.gif",
     baseWeight: 20 
   },
 
@@ -124,7 +118,7 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Compound', 
     locations: ['Academia'], 
     difficulty: [UserLevel.INTERMEDIATE, UserLevel.ADVANCED], 
-    gifUrl: "https://images.unsplash.com/photo-1574680096141-1cddd32e04ca?q=80&w=2070&auto=format&fit=crop",
+    gifUrl: "https://media.giphy.com/media/xT4uQzQonxDb755FCM/giphy.gif",
     baseWeight: 10 
   },
   { 
@@ -134,7 +128,7 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Compound', 
     locations: ['Academia'], 
     difficulty: [UserLevel.BEGINNER, UserLevel.INTERMEDIATE], 
-    gifUrl: "https://plus.unsplash.com/premium_photo-1661265933107-85a5dbd8a560?q=80&w=2069&auto=format&fit=crop",
+    gifUrl: "https://media.giphy.com/media/3oKIPa2TdahY8LAAxy/giphy.gif",
     baseWeight: 40 
   },
   { 
@@ -144,7 +138,7 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Compound', 
     locations: ['Academia', 'Casa', 'Ar Livre'], 
     difficulty: [UserLevel.BEGINNER, UserLevel.INTERMEDIATE], 
-    gifUrl: "https://images.unsplash.com/photo-1434608519344-49d77a699ded?q=80&w=2074&auto=format&fit=crop",
+    gifUrl: "https://media.giphy.com/media/3o6Zt9y2JCjf450T3q/giphy.gif",
     baseWeight: 0 
   },
   { 
@@ -154,7 +148,7 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Isolation', 
     locations: ['Academia'], 
     difficulty: [UserLevel.BEGINNER], 
-    gifUrl: "https://images.unsplash.com/photo-1579758629938-03607ccdbaba?q=80&w=2070&auto=format&fit=crop",
+    gifUrl: "https://media.giphy.com/media/3o7qE0gOGwzPbH81Qk/giphy.gif",
     baseWeight: 15 
   },
   { 
@@ -164,7 +158,7 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Compound', 
     locations: ['Academia', 'Casa'], 
     difficulty: [UserLevel.INTERMEDIATE], 
-    gifUrl: "https://images.unsplash.com/photo-1566241440091-ec10de8db2e1?q=80&w=2000&auto=format&fit=crop",
+    gifUrl: "https://media.giphy.com/media/l2JeaXSlN7al98Kn6/giphy.gif",
     baseWeight: 10 
   },
 
@@ -176,7 +170,7 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Compound', 
     locations: ['Academia'], 
     difficulty: [UserLevel.INTERMEDIATE], 
-    gifUrl: "https://images.unsplash.com/photo-1532029837066-2e49782e2b99?q=80&w=2070&auto=format&fit=crop",
+    gifUrl: "https://media.giphy.com/media/3o6ZtpWvwnhf34Oj0A/giphy.gif",
     baseWeight: 5 
   },
   { 
@@ -186,7 +180,7 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Isolation', 
     locations: ['Academia', 'Casa'], 
     difficulty: [UserLevel.BEGINNER], 
-    gifUrl: "https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?q=80&w=2069&auto=format&fit=crop",
+    gifUrl: "https://media.giphy.com/media/3o6ZtailN3p7m8xTMc/giphy.gif",
     baseWeight: 4 
   },
 
@@ -198,7 +192,7 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Isolation', 
     locations: ['Academia', 'Casa'], 
     difficulty: [UserLevel.BEGINNER], 
-    gifUrl: "https://images.unsplash.com/photo-1581009137042-c5529b85d2e9?q=80&w=2070&auto=format&fit=crop",
+    gifUrl: "https://media.giphy.com/media/l0HlPtbGpcnqa0fXA/giphy.gif",
     baseWeight: 5 
   },
   { 
@@ -208,7 +202,7 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Isolation', 
     locations: ['Academia'], 
     difficulty: [UserLevel.BEGINNER], 
-    gifUrl: "https://images.unsplash.com/photo-1530822847156-5df684ec5ee1?q=80&w=2070&auto=format&fit=crop",
+    gifUrl: "https://media.giphy.com/media/3o7TKUM3IgJBX2as9O/giphy.gif",
     baseWeight: 15 
   },
 
@@ -220,7 +214,7 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Isolation', 
     locations: ['Academia', 'Casa', 'Ar Livre'], 
     difficulty: [UserLevel.BEGINNER], 
-    gifUrl: "https://images.unsplash.com/photo-1566241483335-c59153e0e771?q=80&w=2000&auto=format&fit=crop",
+    gifUrl: "https://media.giphy.com/media/xT8qBff8cRCNZnk58s/giphy.gif",
     baseWeight: 0 
   },
   { 
@@ -230,7 +224,7 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Compound', 
     locations: ['Academia', 'Ar Livre'], 
     difficulty: [UserLevel.BEGINNER], 
-    gifUrl: "https://images.unsplash.com/photo-1534258936925-c48947387e3b?q=80&w=2070&auto=format&fit=crop",
+    gifUrl: "https://media.giphy.com/media/l2JHVUriDGEtJ8l0c/giphy.gif",
     baseWeight: 0 
   }
 ];
@@ -332,8 +326,8 @@ const getTips = (group: string, type: string): string => {
 // --- CORE GENERATION LOGIC (PURELY ALGORITHMIC) ---
 
 export const generateWeeklyWorkout = async (profile: UserProfile): Promise<WeeklyWorkoutPlan | null> => {
-  // Artificial delay removed or minimized
-  await new Promise(r => setTimeout(r, 200));
+  // Simula tempo de processamento
+  await new Promise(r => setTimeout(r, 500));
 
   let splitStructure: { name: string; focus: string; groups: string[] }[] = [];
   
@@ -435,7 +429,7 @@ export const generateWeeklyWorkout = async (profile: UserProfile): Promise<Weekl
   });
 
   return {
-    title: `Protocolo Matemático ${profile.goal}`,
+    title: `Protocolo ${profile.goal}`,
     overview: `Estrutura baseada em ${profile.location} para nível ${profile.level}. Foco em progressão de carga e volume controlado.`,
     split
   };
@@ -451,7 +445,6 @@ export const swapExercise = async (currentExercise: Exercise, userGoal: string):
   
   const random = candidates[Math.floor(Math.random() * candidates.length)];
   
-  // Calculate weight for swap (assuming beginner for safety on swap)
   const suggested = random.baseWeight;
 
   return {
@@ -466,9 +459,7 @@ export const swapExercise = async (currentExercise: Exercise, userGoal: string):
 };
 
 export const generateDiet = async (profile: UserProfile, budget: number, period: 'Diário' | 'Semanal' | 'Mensal'): Promise<DietPlan | null> => {
-  // ... Logic remains unchanged for Diet ...
-  // Implementation is same as previous file content
-  await new Promise(r => setTimeout(r, 800));
+  await new Promise(r => setTimeout(r, 500));
   const bmr = 10 * profile.weight + 6.25 * profile.height - 5 * profile.age + 5;
   let tdee = bmr * 1.35;
   if (profile.goal === UserGoal.LOSE_WEIGHT) tdee -= 500;
@@ -551,35 +542,60 @@ export const generateDiet = async (profile: UserProfile, budget: number, period:
   };
 };
 
+// SISTEMA ESTÁTICO DE COPY (SEM IA)
 export const generateAffiliateCopy = async (type: 'whatsapp' | 'instagram' | 'email'): Promise<string> => {
-  if (!ai) return "Configure a API Key para usar o Gerador de Copy (IA).";
-  const prompt = `Atue como um copywriter expert em fitness. Crie uma mensagem curta e persuasiva para vender o app 'Acer Fitness PRO' no ${type}. Foco: Dieta barata e treinos personalizados.`;
-  try {
-    const response = await ai.models.generateContent({
-      model: MODEL_NAME,
-      contents: prompt,
-    });
-    return response.text || "Erro ao gerar texto.";
-  } catch (error) {
-    return "Erro na IA. Verifique sua chave API.";
-  }
+  await new Promise(r => setTimeout(r, 600)); // Simula processamento
+  const templates = {
+    whatsapp: [
+      "🔥 Galera, comecei a usar o Acer Fitness PRO e tá insano! Treinos personalizados e dieta barata. Quem quiser testar, clica aqui: [LINK]",
+      "👀 Quer entrar em forma sem gastar horrores? Esse app monta dieta com o que você tem em casa. Muito top! 👇 [LINK]",
+      "💪 Projeto fitness tá on! Se liga nesse app que organiza tudo pra você. Recomendo demais! [LINK]"
+    ],
+    instagram: [
+      "Arrasta pra cima se você quer mudar de vida! 🚀 O Acer Fitness PRO monta seu treino e dieta em segundos. Link na bio! #fitness #treino #dieta",
+      "Cansado de gastar com personal e nutri? 💸 Conheça o app que faz tudo isso por você. Resultados reais! 💥 #acerfitness #musculacao",
+      "Transformação começa agora! 🔥 Baixe o Acer Fitness PRO e tenha um coach no seu bolso 24h. 💪 Link no perfil!"
+    ],
+    email: [
+      "Assunto: Seu plano fitness chegou 🚀\n\nOi! Tudo bem? Descobri uma ferramenta incrível para quem quer entrar em forma economizando. O Acer Fitness PRO cria treinos e dietas personalizados para o seu bolso. Dá uma olhada: [LINK]",
+      "Assunto: Pare de jogar dinheiro fora na academia 💸\n\nVocê sabia que a maioria das pessoas desiste por não ter um plano? Com o Acer Fitness PRO, você tem um guia passo a passo. Clique aqui para começar: [LINK]"
+    ]
+  };
+  const options = templates[type];
+  return options[Math.floor(Math.random() * options.length)];
 };
 
+// SISTEMA ESTÁTICO DE CHAT (SEM IA)
 export const chatWithTrainer = async (message: string, context: string): Promise<string> => {
-  if (!ai) return "O Chat Inteligente requer uma API Key válida.";
-  const prompt = `
-    Você é um treinador pessoal experiente e motivador.
-    Contexto do aluno: ${context}.
-    Pergunta do aluno: "${message}".
-    Responda de forma curta, direta e útil. Max 3 frases.
-  `;
-  try {
-    const response = await ai.models.generateContent({
-      model: MODEL_NAME,
-      contents: prompt,
-    });
-    return response.text || "Não entendi. Pode repetir?";
-  } catch (error) {
-    return "Erro de conexão com o treinador.";
+  await new Promise(r => setTimeout(r, 800)); // Simula digitação
+  
+  const msg = message.toLowerCase();
+
+  if (msg.includes("dor") || msg.includes("machuc") || msg.includes("lesão")) {
+    return "⚠️ Se sente dor aguda, pare o exercício imediatamente. Consulte um médico ou fisioterapeuta. Não force se estiver machucado.";
   }
+  if (msg.includes("substitu") || msg.includes("trocar")) {
+    return "Você pode usar o botão de 'reciclar' no card do exercício para buscar uma alternativa que trabalhe o mesmo grupo muscular!";
+  }
+  if (msg.includes("dieta") || msg.includes("comer") || msg.includes("fome")) {
+    return "O segredo é a consistência. Se sentir muita fome, aumente a ingestão de água e vegetais. Mantenha o foco nas proteínas!";
+  }
+  if (msg.includes("peso") || msg.includes("carga")) {
+    return "Tente aumentar a carga progressivamente. Se conseguir fazer mais de 12 repetições com facilidade, está na hora de aumentar o peso.";
+  }
+  if (msg.includes("descanso") || msg.includes("dias")) {
+    return "O descanso é onde o músculo cresce. Respeite os dias de intervalo sugeridos no seu plano de treino.";
+  }
+  if (msg.includes("suplemento") || msg.includes("whey") || msg.includes("creatina")) {
+    return "Suplementos ajudam, mas comida de verdade é a base. Creatina é ótima para força, e Whey ajuda a bater a proteína do dia.";
+  }
+  
+  // Resposta padrão
+  const defaults = [
+    "Ótima pergunta! Mantenha o foco na execução correta antes de aumentar a carga.",
+    "Estou aqui para ajudar! Lembre-se de beber água durante o treino.",
+    "Você está indo bem! A consistência é a chave para o resultado.",
+    "Se tiver dúvida na execução, clique no ícone de olho no card do exercício para ver o passo a passo."
+  ];
+  return defaults[Math.floor(Math.random() * defaults.length)];
 };
