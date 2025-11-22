@@ -4,7 +4,7 @@ import { generateWeeklyWorkout, swapExercise } from '../services/geminiService';
 import { supabase } from '../lib/supabase';
 import { 
   Dumbbell, Clock, MapPin, Activity, Play, CheckCircle, 
-  RotateCcw, Flame, Timer, ChevronRight, ArrowLeft, History, Save, Trophy, Eye, X, Info, ImageOff, PlayCircle
+  RotateCcw, Timer, ArrowLeft, History, Save, Trophy, Eye, X, Info, PlayCircle
 } from 'lucide-react';
 
 interface Props {
@@ -28,9 +28,6 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
   const [weightHistory, setWeightHistory] = useState<Record<string, number>>({}); // "exerciseName": max_weight
   const [swappingExerciseId, setSwappingExerciseId] = useState<string | null>(null);
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null); // For modal
-
-  // Sound
-  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const fetchWorkout = async () => {
     setLoading(true);
@@ -621,7 +618,7 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
                     onClick={(e) => { e.stopPropagation(); setSelectedExercise(exercise); }} 
                     className="p-2 text-gray-500 hover:text-red-500 transition-colors"
                   >
-                    <Eye size={20} />
+                    <Info size={20} />
                   </button>
                </div>
             )) : (

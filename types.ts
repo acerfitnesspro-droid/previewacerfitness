@@ -13,7 +13,7 @@ export enum UserLevel {
 }
 
 export interface UserProfile {
-  id?: string; // Added for database linkage
+  id?: string;
   name: string;
   age: number;
   weight: number;
@@ -31,15 +31,15 @@ export interface Exercise {
   sets: number;
   reps: string;
   restSeconds: number;
-  suggestedWeight?: number; // Carga sugerida pelo sistema
+  suggestedWeight?: number;
   instructions: string;
   tips: string;
-  alternative?: string; // For AI suggestion
-  gifUrl?: string; // Visual example
+  alternative?: string;
+  gifUrl?: string;
 }
 
 export interface WorkoutDay {
-  dayName: string; // e.g., "Treino A - Peito e Tríceps"
+  dayName: string;
   focus: string;
   exercises: Exercise[];
   duration: string;
@@ -51,15 +51,23 @@ export interface WeeklyWorkoutPlan {
   split: WorkoutDay[];
 }
 
-export interface Meal {
-  name: string;
-  costEstimate: number;
+// Atualizado para macros numéricos para gráficos
+export interface Macros {
+  protein: number;
+  carbs: number;
+  fats: number;
   calories: number;
-  protein: string;
-  carbs: string;
-  fats: string;
+}
+
+export interface Meal {
+  id: string;
+  name: string; // "Café da Manhã", etc
+  description: string; // Nome do prato ex: "Omelete com Aveia"
+  costEstimate: number;
+  macros: Macros;
   ingredients: string[];
   preparation: string;
+  type: 'breakfast' | 'lunch' | 'snack' | 'dinner';
 }
 
 export interface DietPlan {
@@ -68,6 +76,9 @@ export interface DietPlan {
   meals: Meal[];
   shoppingList: string[];
   savingsTips: string[];
+  dailyTargets: Macros;
+  waterTarget: number; // em ml
+  supplements: string[];
 }
 
 export interface ChatMessage {
