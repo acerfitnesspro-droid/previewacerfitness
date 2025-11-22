@@ -1,15 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from './lib/supabase';
 import { UserProfile, UserGoal, UserLevel } from './types';
+import Login from './components/Login';
 import WorkoutDashboard from './components/WorkoutDashboard';
 import DietGenerator from './components/DietGenerator';
 import ChatAssistant from './components/ChatAssistant';
 import AffiliateDashboard from './components/AffiliateDashboard';
 import DashboardHome from './components/DashboardHome';
-import { Dumbbell, Utensils, MessageSquare, TrendingUp, Home, Menu, X } from 'lucide-react';
+import { Dumbbell, Utensils, MessageSquare, TrendingUp, Home, Menu, X, Loader2 } from 'lucide-react';
 
-// Mock initial user state
-const INITIAL_USER: UserProfile = {
-  name: 'Visitante',
+const INITIAL_USER_TEMPLATE: UserProfile = {
+  name: '',
   age: 25,
   weight: 70,
   height: 175,
@@ -20,13 +21,103 @@ const INITIAL_USER: UserProfile = {
 };
 
 const App: React.FC = () => {
+  const [session, setSession] = useState<any>(null);
+  const [loadingAuth, setLoadingAuth] = useState(true);
   const [view, setView] = useState<'onboarding' | 'home' | 'workout' | 'diet' | 'chat' | 'affiliate'>('onboarding');
-  const [user, setUser] = useState<UserProfile>(INITIAL_USER);
+  const [user, setUser] = useState<UserProfile>(INITIAL_USER_TEMPLATE);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [formStep, setFormStep] = useState(0);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
 
-  const handleOnboardingSubmit = () => {
-    setView('home');
+  useEffect(() => {
+    // 1. Check active session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session) fetchProfile(session.user.id);
+      else setLoadingAuth(false);
+    });
+
+    // 2. Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (session) fetchProfile(session.user.id);
+      else {
+        setUser(INITIAL_USER_TEMPLATE);
+        setLoadingAuth(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const fetchProfile = async (userId: string) => {
+    try {
+      setLoadingAuth(true);
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (data) {
+        setUser({
+          name: data.name,
+          age: data.age || 25,
+          weight: data.weight,
+          height: data.height,
+          goal: data.goal as UserGoal,
+          level: data.level as UserLevel,
+          location: data.location as any,
+          budget: data.budget
+        });
+        setView('home');
+      } else {
+        // No profile found, go to onboarding
+        setView('onboarding');
+      }
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+      setView('onboarding');
+    } finally {
+      setLoadingAuth(false);
+    }
+  };
+
+  const handleOnboardingSubmit = async () => {
+    if (!session?.user) return;
+    
+    setIsSavingProfile(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .upsert({
+          id: session.user.id,
+          name: user.name,
+          age: user.age,
+          weight: user.weight,
+          height: user.height,
+          goal: user.goal,
+          level: user.level,
+          location: user.location,
+          budget: user.budget
+        });
+
+      if (error) throw error;
+      setView('home');
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      alert('Erro ao salvar perfil. Tente novamente.');
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setView('onboarding');
+    setFormStep(0);
   };
 
   const NavButton = ({ id, icon: Icon, label }: { id: typeof view, icon: any, label: string }) => (
@@ -43,16 +134,28 @@ const App: React.FC = () => {
     </button>
   );
 
+  if (loadingAuth) {
+    return (
+      <div className="min-h-screen bg-[#1a0505] flex items-center justify-center">
+        <Loader2 className="w-10 h-10 text-red-500 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <Login />;
+  }
+
   if (view === 'onboarding') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#500000] via-[#D00000] to-[#FFC0CB] flex items-center justify-center p-6">
+      <div className="min-h-screen bg-gradient-to-br from-[#500000] via-[#D00000] to-[#FFC0CB] flex items-center justify-center p-6 font-inter">
         <div className="max-w-md w-full bg-black/30 backdrop-blur-xl p-8 rounded-3xl border border-white/10 shadow-2xl">
           <h1 className="text-4xl font-black text-white mb-2 tracking-tighter">ACER FITNESS <span className="text-red-500">PRO</span></h1>
-          <p className="text-pink-200 mb-8">A inteligência artificial que cabe no seu bolso.</p>
+          <p className="text-pink-200 mb-8">Vamos configurar seu perfil pessoal.</p>
           
           {formStep === 0 && (
             <div className="space-y-4 animate-fade-in">
-               <h2 className="text-xl text-white font-bold">Vamos começar! Qual seu nome?</h2>
+               <h2 className="text-xl text-white font-bold">Qual seu nome?</h2>
                <input 
                  type="text" 
                  value={user.name}
@@ -143,11 +246,19 @@ const App: React.FC = () => {
                  ))}
                </div>
 
-               <button onClick={handleOnboardingSubmit} className="w-full bg-gradient-to-r from-red-600 to-pink-600 text-white font-bold py-4 rounded-xl shadow-lg shadow-red-900/50 mt-6 text-lg">
-                 Gerar Plano Inteligente
+               <button 
+                  onClick={handleOnboardingSubmit} 
+                  disabled={isSavingProfile}
+                  className="w-full bg-gradient-to-r from-red-600 to-pink-600 text-white font-bold py-4 rounded-xl shadow-lg shadow-red-900/50 mt-6 text-lg disabled:opacity-50 flex justify-center"
+               >
+                 {isSavingProfile ? <Loader2 className="animate-spin" /> : 'Salvar e Iniciar'}
                </button>
              </div>
           )}
+          
+           <div className="mt-4 text-center">
+            <button onClick={handleLogout} className="text-gray-300 text-sm underline">Sair da conta</button>
+           </div>
         </div>
       </div>
     );
@@ -168,6 +279,9 @@ const App: React.FC = () => {
             <NavButton id="diet" icon={Utensils} label="Dieta Econômica" />
             <NavButton id="chat" icon={MessageSquare} label="Treinador IA" />
             <NavButton id="affiliate" icon={TrendingUp} label="Área de Afiliado" />
+            <button onClick={handleLogout} className="flex items-center gap-3 w-full p-4 rounded-xl text-red-400 hover:bg-white/10 mt-8">
+               <X size={24} /> Sair
+            </button>
           </div>
         </div>
       )}
@@ -189,16 +303,19 @@ const App: React.FC = () => {
           </div>
         </nav>
         
-        <div className="mt-auto pt-6 border-t border-white/10">
+        <div className="mt-auto pt-6 border-t border-white/10 space-y-4">
           <div className="flex items-center gap-3 bg-white/5 p-3 rounded-xl">
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-600 to-pink-600 flex items-center justify-center text-white font-bold shadow-lg shadow-red-900/50">
-              {user.name.charAt(0)}
+              {user.name.charAt(0).toUpperCase()}
             </div>
             <div>
-              <p className="text-white font-bold text-sm">{user.name}</p>
+              <p className="text-white font-bold text-sm truncate max-w-[120px]">{user.name}</p>
               <p className="text-pink-200 text-xs">{user.goal}</p>
             </div>
           </div>
+          <button onClick={handleLogout} className="w-full text-center text-xs text-gray-500 hover:text-white transition-colors">
+             Encerrar Sessão
+          </button>
         </div>
       </aside>
 
