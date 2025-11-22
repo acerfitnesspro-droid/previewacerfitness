@@ -1,3 +1,4 @@
+
 export enum UserGoal {
   LOSE_WEIGHT = 'Emagrecer',
   GAIN_MUSCLE = 'Hipertrofia',
@@ -12,6 +13,7 @@ export enum UserLevel {
 }
 
 export interface UserProfile {
+  id?: string; // Added for database linkage
   name: string;
   age: number;
   weight: number;

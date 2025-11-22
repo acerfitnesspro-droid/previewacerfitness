@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { UserProfile, WeeklyWorkoutPlan, Exercise } from '../types';
 import { generateWeeklyWorkout, swapExercise } from '../services/geminiService';
+import { supabase } from '../lib/supabase';
 import { 
   Dumbbell, Clock, MapPin, Activity, Play, CheckCircle, 
-  RotateCcw, AlertCircle, Flame, Timer, ChevronRight, ArrowLeft, Plus
+  RotateCcw, Flame, Timer, ChevronRight, ArrowLeft, History, Save, Trophy
 } from 'lucide-react';
 
 interface Props {
@@ -17,12 +18,18 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
   const [isWorkoutActive, setIsWorkoutActive] = useState(false);
   
   // Active Workout State
-  // Tracks completed sets: "exerciseIndex-setIndex"
-  const [completedSets, setCompletedSets] = useState<string[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [completedSets, setCompletedSets] = useState<Set<string>>(new Set()); // "exerciseName-setIndex"
   const [activeTimer, setActiveTimer] = useState<number | null>(null); // seconds
   const [timerRunning, setTimerRunning] = useState(false);
-  const [loggedWeights, setLoggedWeights] = useState<Record<string, string>>({});
+  const [loggedWeights, setLoggedWeights] = useState<Record<string, string>>({}); // "exerciseName-setIndex": "20"
+  
+  // History State
+  const [weightHistory, setWeightHistory] = useState<Record<string, number>>({}); // "exerciseName": max_weight
   const [swappingExerciseId, setSwappingExerciseId] = useState<string | null>(null);
+
+  // Sound
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const fetchWorkout = async () => {
     setLoading(true);
@@ -31,45 +38,218 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
     setLoading(false);
   };
 
+  // Load plan and history
   useEffect(() => {
     if (!plan) {
       fetchWorkout();
+    } else {
+      fetchExerciseHistory();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [plan]);
 
-  // Timer Logic
+  // Session Recovery & History Logic
+  useEffect(() => {
+    const checkActiveSession = async () => {
+      if (!user.id) return;
+      
+      // 1. Check for unfinished sessions
+      const { data: session } = await supabase
+        .from('workout_sessions')
+        .select('id, day_name, started_at')
+        .eq('user_id', user.id)
+        .is('finished_at', null)
+        .order('started_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (session) {
+        setActiveSessionId(session.id);
+        setIsWorkoutActive(true);
+        
+        // Try to match day index
+        if (plan) {
+           const dayIdx = plan.split.findIndex(d => d.dayName === session.day_name);
+           if (dayIdx !== -1) setActiveDayIndex(dayIdx);
+        }
+        
+        // 2. Load logs for this active session
+        const { data: logs } = await supabase
+          .from('workout_logs')
+          .select('*')
+          .eq('session_id', session.id);
+          
+        if (logs) {
+          const restoredCompleted = new Set<string>();
+          const restoredWeights: Record<string, string> = {};
+          logs.forEach((log: any) => {
+             const id = `${log.exercise_name}-${log.set_number - 1}`; // set_number is 1-based in DB
+             restoredCompleted.add(id);
+             if (log.weight) restoredWeights[id] = log.weight.toString();
+          });
+          setCompletedSets(restoredCompleted);
+          setLoggedWeights(prev => ({...prev, ...restoredWeights}));
+        }
+      }
+    };
+    
+    if (user.id) checkActiveSession();
+  }, [user.id, plan]);
+
+  const fetchExerciseHistory = async () => {
+    if (!user.id) return;
+    
+    try {
+      // Get the max weight used for each exercise in the last 200 logs
+      const { data, error } = await supabase
+        .from('workout_logs')
+        .select('exercise_name, weight')
+        .order('created_at', { ascending: false })
+        .limit(300); 
+
+      if (data) {
+        const history: Record<string, number> = {};
+        data.forEach((log: any) => {
+           if (log.weight && (!history[log.exercise_name] || log.weight > history[log.exercise_name])) {
+              history[log.exercise_name] = log.weight;
+           }
+        });
+        setWeightHistory(history);
+      }
+    } catch (err) {
+      console.error("Erro ao buscar histórico:", err);
+    }
+  };
+
+  // Timer Logic with Sound
   useEffect(() => {
     let interval: any;
     if (timerRunning && activeTimer !== null && activeTimer > 0) {
       interval = setInterval(() => {
         setActiveTimer((prev) => (prev !== null ? prev - 1 : 0));
       }, 1000);
-    } else if (activeTimer === 0) {
+    } else if (activeTimer === 0 && timerRunning) {
       setTimerRunning(false);
-      setActiveTimer(null); // Reset timer display
-      // Optional: Add sound effect here
+      playTimerSound();
     }
     return () => clearInterval(interval);
   }, [timerRunning, activeTimer]);
 
-  const toggleSetComplete = (exIndex: number, setIndex: number) => {
-    const id = `${exIndex}-${setIndex}`;
-    if (completedSets.includes(id)) {
-      setCompletedSets(prev => prev.filter(s => s !== id));
-    } else {
-      setCompletedSets(prev => [...prev, id]);
+  const playTimerSound = () => {
+    try {
+      const audio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
+      audio.volume = 0.5;
+      audio.play().catch(e => console.log("Audio blocked", e));
+    } catch (e) {
+      console.error(e);
     }
-  };
-
-  const handleWeightChange = (exIndex: number, setIndex: number, value: string) => {
-    const id = `${exIndex}-${setIndex}`;
-    setLoggedWeights(prev => ({ ...prev, [id]: value }));
   };
 
   const startRestTimer = (seconds: number) => {
     setActiveTimer(seconds);
     setTimerRunning(true);
+  };
+
+  const handleStartWorkout = async () => {
+    if (!currentDay || !user.id) {
+        alert("Erro ao iniciar. Verifique sua conexão.");
+        return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('workout_sessions')
+        .insert({
+          user_id: user.id,
+          day_name: currentDay.dayName
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      
+      if (data) {
+        setActiveSessionId(data.id);
+        setIsWorkoutActive(true);
+        
+        // Pre-fill weights based on history
+        const initialWeights: Record<string, string> = {};
+        currentDay.exercises.forEach(ex => {
+           if (weightHistory[ex.name]) {
+             for(let i=0; i < ex.sets; i++) {
+                initialWeights[`${ex.name}-${i}`] = weightHistory[ex.name].toString();
+             }
+           }
+        });
+        setLoggedWeights(prev => ({...prev, ...initialWeights}));
+      }
+    } catch (err: any) {
+      alert("Erro ao iniciar sessão: " + err.message + "\nVerifique se você rodou o script SQL.");
+    }
+  };
+
+  const handleFinishWorkout = async () => {
+    if (!activeSessionId) return;
+
+    try {
+      await supabase
+        .from('workout_sessions')
+        .update({ finished_at: new Date().toISOString() })
+        .eq('id', activeSessionId);
+        
+      setIsWorkoutActive(false);
+      setCompletedSets(new Set());
+      setLoggedWeights({});
+      fetchExerciseHistory(); // Refresh history
+      setActiveSessionId(null);
+    } catch (err) {
+      console.error("Erro ao finalizar:", err);
+    }
+  };
+
+  const toggleSetComplete = async (exerciseName: string, muscleGroup: string, setIndex: number, reps: string) => {
+    const id = `${exerciseName}-${setIndex}`;
+    const weight = loggedWeights[id] ? parseFloat(loggedWeights[id]) : null;
+    
+    if (!activeSessionId) return;
+    if (weight === null || isNaN(weight)) {
+      // Optional: Shake animation or visual warning could go here
+      // For now we allow saving without weight, but it's good practice to warn.
+    }
+
+    // Optimistic UI update
+    const newCompleted = new Set(completedSets);
+    const isCompleting = !newCompleted.has(id);
+    
+    if (isCompleting) {
+      newCompleted.add(id);
+    } else {
+      newCompleted.delete(id);
+    }
+    setCompletedSets(newCompleted);
+
+    // Database Sync
+    try {
+      if (isCompleting) {
+        await supabase
+          .from('workout_logs')
+          .upsert({
+             session_id: activeSessionId,
+             exercise_name: exerciseName,
+             muscle_group: muscleGroup,
+             set_number: setIndex + 1,
+             weight: weight || 0,
+             reps_performed: reps
+          }, { onConflict: 'session_id, exercise_name, set_number' });
+      }
+    } catch (err) {
+      console.error("Erro ao salvar log:", err);
+    }
+  };
+
+  const handleWeightChange = (exerciseName: string, setIndex: number, value: string) => {
+    const id = `${exerciseName}-${setIndex}`;
+    setLoggedWeights(prev => ({ ...prev, [id]: value }));
   };
 
   const handleSwapExercise = async (exercise: Exercise, dayIndex: number, exIndex: number) => {
@@ -84,14 +264,6 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
       alert("Não foi possível trocar o exercício no momento.");
     }
     setSwappingExerciseId(null);
-  };
-
-  const handleStartWorkout = () => {
-    if (!currentDay || !currentDay.exercises || currentDay.exercises.length === 0) {
-        alert("Aguarde o carregamento dos exercícios.");
-        return;
-    }
-    setIsWorkoutActive(true);
   };
 
   if (loading) {
@@ -121,7 +293,7 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
   // View: Active Workout Mode
   if (isWorkoutActive && currentDay) {
     const totalSets = currentDay.exercises.reduce((acc, ex) => acc + ex.sets, 0);
-    const progress = (completedSets.length / totalSets) * 100;
+    const progress = totalSets > 0 ? (completedSets.size / totalSets) * 100 : 0;
 
     return (
       <div className="fixed inset-0 bg-[#0f0505] z-50 overflow-y-auto pb-20 animate-fade-in">
@@ -139,11 +311,13 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
               <div className="h-full bg-gradient-to-r from-red-600 to-pink-600 transition-all duration-500" style={{ width: `${progress}%` }}></div>
           </div>
           
-          {/* Floating Timer Overlay if active */}
-          {activeTimer !== null && (
-             <div className="absolute top-20 left-1/2 transform -translate-x-1/2 bg-red-600 text-white px-6 py-2 rounded-full shadow-xl flex items-center gap-2 font-mono text-xl font-bold z-40 animate-pulse border border-white/20">
+          {/* Floating Timer Overlay */}
+          {activeTimer !== null && activeTimer >= 0 && (
+             <div className={`absolute top-20 left-1/2 transform -translate-x-1/2 px-6 py-2 rounded-full shadow-xl flex items-center gap-2 font-mono text-xl font-bold z-40 border transition-colors ${
+                activeTimer === 0 ? 'bg-green-600 text-white border-green-400 animate-bounce' : 'bg-red-600 text-white border-white/20'
+             }`}>
                 <Timer size={20} />
-                {Math.floor(activeTimer / 60)}:{(activeTimer % 60).toString().padStart(2, '0')}
+                {activeTimer === 0 ? "TEMPO!" : `${Math.floor(activeTimer / 60)}:${(activeTimer % 60).toString().padStart(2, '0')}`}
              </div>
           )}
         </div>
@@ -155,7 +329,14 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
                <div className="flex justify-between items-start mb-4">
                  <div>
                    <h4 className="text-xl font-bold text-white">{exercise.name}</h4>
-                   <p className="text-xs text-gray-400">{exercise.muscleGroup}</p>
+                   <p className="text-xs text-gray-400 flex items-center gap-1">
+                     {exercise.muscleGroup}
+                     {weightHistory[exercise.name] && (
+                       <span className="text-green-400 flex items-center ml-2 bg-green-900/20 px-2 rounded">
+                         <History size={10} className="mr-1"/> Melhor: {weightHistory[exercise.name]}kg
+                       </span>
+                     )}
+                   </p>
                  </div>
                  <button 
                    onClick={() => handleSwapExercise(exercise, activeDayIndex, exIndex)}
@@ -176,8 +357,10 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
                   </div>
                   
                   {Array.from({ length: exercise.sets }).map((_, setIndex) => {
-                    const setId = `${exIndex}-${setIndex}`;
-                    const isDone = completedSets.includes(setId);
+                    const setId = `${exercise.name}-${setIndex}`;
+                    const isDone = completedSets.has(setId);
+                    const currentVal = loggedWeights[setId] ? parseFloat(loggedWeights[setId]) : 0;
+                    const isPR = weightHistory[exercise.name] && currentVal > weightHistory[exercise.name];
                     
                     return (
                       <div key={setIndex} className={`grid grid-cols-[40px_1fr_1fr_40px] gap-2 items-center bg-white/5 p-2 rounded-xl border transition-all ${isDone ? 'border-green-500/30 bg-green-900/10' : 'border-white/5'}`}>
@@ -185,21 +368,24 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
                             {setIndex + 1}
                          </div>
                          
-                         <input 
-                           type="number" 
-                           placeholder="-" 
-                           value={loggedWeights[setId] || ''}
-                           onChange={(e) => handleWeightChange(exIndex, setIndex, e.target.value)}
-                           className="bg-black/40 text-white text-center p-2 rounded-lg border border-white/10 focus:border-red-500 outline-none"
-                         />
+                         <div className="relative">
+                            <input 
+                              type="number" 
+                              placeholder="-" 
+                              value={loggedWeights[setId] || ''}
+                              onChange={(e) => handleWeightChange(exercise.name, setIndex, e.target.value)}
+                              className={`w-full bg-black/40 text-white text-center p-2 rounded-lg border focus:outline-none ${isPR ? 'border-yellow-500 text-yellow-400 font-bold shadow-[0_0_10px_rgba(234,179,8,0.3)]' : 'border-white/10 focus:border-red-500'}`}
+                            />
+                            {isPR && <Trophy size={12} className="absolute top-1 right-1 text-yellow-500" />}
+                         </div>
                          
                          <div className="text-center text-gray-300 font-bold">
                             {exercise.reps}
                          </div>
                          
                          <button 
-                           onClick={() => toggleSetComplete(exIndex, setIndex)}
-                           className={`w-full h-full flex items-center justify-center rounded-lg transition-colors ${isDone ? 'text-green-500' : 'text-gray-600 hover:text-white'}`}
+                           onClick={() => toggleSetComplete(exercise.name, exercise.muscleGroup, setIndex, exercise.reps)}
+                           className={`w-full h-full flex items-center justify-center rounded-lg transition-colors ${isDone ? 'text-green-500 scale-110' : 'text-gray-600 hover:text-white'}`}
                          >
                             <CheckCircle size={24} fill={isDone ? "currentColor" : "none"} />
                          </button>
@@ -216,7 +402,7 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
                  >
                     <Clock size={16} /> Descanso ({exercise.restSeconds}s)
                  </button>
-                 <div className="p-3 bg-white/5 rounded-xl text-xs text-gray-400 flex-1 border-l-2 border-red-500">
+                 <div className="p-3 bg-white/5 rounded-xl text-xs text-gray-400 flex-1 border-l-2 border-red-500 flex items-center">
                     {exercise.instructions}
                  </div>
                </div>
@@ -224,10 +410,10 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
           ))}
 
           <button 
-            onClick={() => setIsWorkoutActive(false)}
+            onClick={handleFinishWorkout}
             className="w-full bg-green-600 hover:bg-green-700 text-white font-black text-xl py-6 rounded-2xl shadow-lg shadow-green-900/50 transition-transform active:scale-95 uppercase tracking-widest flex items-center justify-center gap-2"
           >
-             <CheckCircle /> Finalizar Treino
+             <Save /> Finalizar e Salvar
           </button>
         </div>
       </div>
@@ -306,6 +492,9 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
                         <div className="flex gap-3 text-xs md:text-sm text-gray-400 mt-1">
                            <span className="flex items-center gap-1"><RotateCcw size={12}/> {exercise.sets} Sets</span>
                            <span className="flex items-center gap-1"><Dumbbell size={12}/> {exercise.reps}</span>
+                           {weightHistory[exercise.name] && (
+                             <span className="flex items-center gap-1 text-green-500 ml-2"><History size={12}/> {weightHistory[exercise.name]}kg</span>
+                           )}
                         </div>
                      </div>
                   </div>

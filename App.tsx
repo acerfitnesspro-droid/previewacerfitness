@@ -79,6 +79,7 @@ const App: React.FC = () => {
         setView('onboarding');
       } else if (data) {
         setUser({
+          id: userId, // Ensure ID is present
           name: data.name,
           age: data.age || 25,
           weight: data.weight,
@@ -120,6 +121,8 @@ const App: React.FC = () => {
         });
 
       if (error) throw error;
+      // Update local state with ID
+      setUser(prev => ({ ...prev, id: session.user.id }));
       setView('home');
     } catch (error: any) {
       console.error('Erro ao salvar perfil:', error);
