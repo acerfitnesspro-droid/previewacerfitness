@@ -139,8 +139,11 @@ const MEAL_DB: DBMeal[] = [
 // --- LÓGICA DE TREINO REFINADA ---
 
 const getTargetExercises = (muscleGroup: string, location: string, level: UserLevel, count: number, excludeIds: Set<string>): Exercise[] => {
+  // Normaliza localização para evitar erros de digitação/casing
+  const normLocation = location === 'Ar Livre' ? 'Ar Livre' : (location === 'Casa' ? 'Casa' : 'Academia');
+
   // 1. Filtra por local e grupo muscular
-  let pool = EXERCISE_DB.filter(e => e.locations.includes(location));
+  let pool = EXERCISE_DB.filter(e => e.locations.includes(normLocation));
   
   if (muscleGroup === 'Cardio') {
     pool = pool.filter(e => e.group === 'Cardio');
@@ -148,26 +151,25 @@ const getTargetExercises = (muscleGroup: string, location: string, level: UserLe
     pool = pool.filter(e => e.group === muscleGroup);
   }
 
-  // 2. Fallback de Local: Se não achar exercícios para "Casa", tenta buscar exercícios "Gerais" que funcionam em qualquer lugar
-  if (pool.length < count && location === 'Casa') {
-     const backupPool = EXERCISE_DB.filter(e => e.group === muscleGroup && (e.locations.includes('Casa') || e.locations.includes('Ar Livre')));
-     backupPool.forEach(e => { if (!pool.find(p => p.id === e.id)) pool.push(e); });
+  // 2. Fallback de Robustez: Se não encontrar nada para o local específico, busca QUALQUER exercício do grupo muscular.
+  // Isso impede que a tela fique vazia se o filtro de local for muito restritivo.
+  if (pool.length < count) {
+     console.warn(`Fallback ativado para ${muscleGroup} em ${normLocation}`);
+     const fallbackPool = EXERCISE_DB.filter(e => e.group === muscleGroup);
+     fallbackPool.forEach(e => { 
+        if (!pool.find(p => p.id === e.id)) pool.push(e); 
+     });
   }
 
   // 3. Filtra os já usados (apenas se tivermos opções suficientes para não zerar o pool)
   const unusedPool = pool.filter(e => !excludeIds.has(e.id));
   if (unusedPool.length >= count) {
       pool = unusedPool;
-  } else {
-      // Se faltar exercício, permitimos repetição mas tentamos evitar
-      // Mantemos o pool cheio
   }
+  // Se não tivermos não-usados suficientes, usamos o pool completo (com repetidos) para garantir que retornamos ALGO.
 
   // 4. Ordenação Inteligente: Compostos Primeiro!
-  // Embaralha primeiro para variar exercícios do mesmo tipo
   pool.sort(() => Math.random() - 0.5);
-  
-  // Depois ordena estável para colocar compostos no topo
   pool.sort((a, b) => {
       if (a.type === 'Compound' && b.type !== 'Compound') return -1;
       if (a.type !== 'Compound' && b.type === 'Compound') return 1;
@@ -186,7 +188,7 @@ const getTargetExercises = (muscleGroup: string, location: string, level: UserLe
       id: dbEx.id,
       name: dbEx.name,
       muscleGroup: dbEx.group,
-      sets: dbEx.type === 'Compound' ? 4 : 3, // Compostos ganham mais séries
+      sets: dbEx.type === 'Compound' ? 4 : 3,
       reps: dbEx.group === 'Abdômen' || dbEx.group === 'Cardio' ? '15-20' : (dbEx.type === 'Compound' ? '8-10' : '10-12'),
       restSeconds: dbEx.type === 'Compound' ? 90 : 60,
       suggestedWeight: suggested,
@@ -195,6 +197,7 @@ const getTargetExercises = (muscleGroup: string, location: string, level: UserLe
       gifUrl: dbEx.gifUrl
     });
   }
+  
   return selected;
 };
 
@@ -236,7 +239,7 @@ export const generateWeeklyWorkout = async (profile: UserProfile): Promise<Weekl
             { name: 'Treino C - Pernas Completo', focus: 'Hipertrofia Perna', groups: ['Pernas', 'Pernas', 'Pernas', 'Pernas', 'Pernas'] },
             { name: 'Descanso', focus: 'Recuperação', groups: [] },
             { name: 'Treino D - Ombros e Abs', focus: 'Deltóides', groups: ['Ombros', 'Ombros', 'Ombros', 'Abdômen', 'Abdômen'] },
-            { name: 'Treino E - Cardio/Correção', focus: 'Gasto Calórico', groups: ['Cardio', 'Cardio', 'Abdômen'] }, // Ajustado para evitar erro se não tiver exercícios de ponto fraco
+            { name: 'Treino E - Cardio/Correção', focus: 'Gasto Calórico', groups: ['Cardio', 'Cardio', 'Abdômen'] }, 
             { name: 'Descanso', focus: 'Recuperação', groups: [] }
         ];
      }
@@ -248,11 +251,9 @@ export const generateWeeklyWorkout = async (profile: UserProfile): Promise<Weekl
     if (day.groups.length === 0) return { dayName: day.name, focus: day.focus, exercises: [], duration: '0 min' };
     
     const exercises: Exercise[] = [];
-    // Agrupa contagem para pedir múltiplos de uma vez (ex: 3 de Peito)
     const groupCounts: Record<string, number> = {};
     day.groups.forEach(g => groupCounts[g] = (groupCounts[g] || 0) + 1);
     
-    // Para cada grupo muscular do dia, busca exercícios
     Object.entries(groupCounts).forEach(([group, count]) => {
       const found = getTargetExercises(group, profile.location, profile.level, count, usedIds);
       exercises.push(...found);
@@ -276,7 +277,6 @@ export const generateWeeklyWorkout = async (profile: UserProfile): Promise<Weekl
 export const swapExercise = async (currentExercise: Exercise, userGoal: string): Promise<Exercise | null> => {
   await new Promise(resolve => setTimeout(resolve, 400));
   
-  // Busca exercícios do mesmo grupo que não sejam o atual
   const candidates = EXERCISE_DB.filter(e => e.group === currentExercise.muscleGroup && e.id !== currentExercise.id && e.name !== currentExercise.name);
   
   if (candidates.length === 0) return null;
@@ -299,7 +299,7 @@ export const swapExercise = async (currentExercise: Exercise, userGoal: string):
 
 // --- LÓGICA DE DIETA (MANTIDA E EXPANDIDA NOS DADOS) ---
 const scaleIngredients = (template: string[], calories: number, baseCalories: number): string[] => {
-    const ratio = calories / Math.max(baseCalories, 100); // Evita divisão por zero
+    const ratio = calories / Math.max(baseCalories, 100); 
     return template.map(item => {
       if (item.includes('{x}')) {
          const baseVal = item.includes('Ovos') ? 2 : (item.includes('Frango') || item.includes('Carne') || item.includes('Peixe') ? 100 : 50); 
