@@ -4,7 +4,7 @@ import { generateWeeklyWorkout, swapExercise } from '../services/geminiService';
 import { supabase } from '../lib/supabase';
 import { 
   Dumbbell, Clock, MapPin, Activity, Play, CheckCircle, 
-  RotateCcw, Flame, Timer, ChevronRight, ArrowLeft, History, Save, Trophy, Eye, X, Info, ImageOff
+  RotateCcw, Flame, Timer, ChevronRight, ArrowLeft, History, Save, Trophy, Eye, X, Info, ImageOff, PlayCircle
 } from 'lucide-react';
 
 interface Props {
@@ -418,7 +418,7 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
                    <div className="flex items-center gap-2 mb-1">
                       <h4 className="text-xl font-bold text-white leading-tight">{exercise.name}</h4>
                       <button onClick={() => setSelectedExercise(exercise)} className="text-red-400 hover:text-white">
-                        <Eye size={20} />
+                        <Info size={20} />
                       </button>
                    </div>
                    <p className="text-xs text-gray-400 flex items-center gap-1 flex-wrap">
@@ -509,7 +509,7 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
                     onClick={() => setSelectedExercise(exercise)}
                     className="flex-1 bg-white/5 hover:bg-white/10 text-gray-300 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors"
                  >
-                    <Eye size={16} /> Como Fazer
+                    <PlayCircle size={16} /> Como Fazer
                  </button>
                </div>
             </div>
