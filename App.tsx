@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { supabase } from './lib/supabase';
+import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { UserProfile, UserGoal, UserLevel } from './types';
 import Login from './components/Login';
 import WorkoutDashboard from './components/WorkoutDashboard';
@@ -7,7 +8,8 @@ import DietGenerator from './components/DietGenerator';
 import ChatAssistant from './components/ChatAssistant';
 import AffiliateDashboard from './components/AffiliateDashboard';
 import DashboardHome from './components/DashboardHome';
-import { Dumbbell, Utensils, MessageSquare, TrendingUp, Home, Menu, X, Loader2 } from 'lucide-react';
+import SystemConfig from './components/SystemConfig';
+import { Dumbbell, Utensils, MessageSquare, TrendingUp, Home, Menu, X, Loader2, LogOut } from 'lucide-react';
 
 const INITIAL_USER_TEMPLATE: UserProfile = {
   name: '',
@@ -28,16 +30,24 @@ const App: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [formStep, setFormStep] = useState(0);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [needsConfig, setNeedsConfig] = useState(false);
 
   useEffect(() => {
-    // 1. Check active session
+    // Verifica se o Supabase está configurado corretamente
+    if (!isSupabaseConfigured()) {
+      setNeedsConfig(true);
+      setLoadingAuth(false);
+      return;
+    }
+
+    // 1. Verificar sessão ativa
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session) fetchProfile(session.user.id);
       else setLoadingAuth(false);
     });
 
-    // 2. Listen for auth changes
+    // 2. Ouvir mudanças na autenticação
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -61,7 +71,15 @@ const App: React.FC = () => {
         .eq('id', userId)
         .single();
 
-      if (data) {
+      if (error) {
+        // Se o erro for de conexão/fetch, pode ser configuração errada
+        if (error.message && (error.message.includes('fetch') || error.message.includes('connection'))) {
+            console.error("Erro crítico de conexão:", error);
+            // Opcional: Forçar tela de config se o erro for persistente
+        }
+        // Se não achou perfil, vai pro onboarding
+        setView('onboarding');
+      } else if (data) {
         setUser({
           name: data.name,
           age: data.age || 25,
@@ -74,11 +92,10 @@ const App: React.FC = () => {
         });
         setView('home');
       } else {
-        // No profile found, go to onboarding
         setView('onboarding');
       }
     } catch (error) {
-      console.error('Error fetching profile:', error);
+      console.error('Erro ao buscar perfil:', error);
       setView('onboarding');
     } finally {
       setLoadingAuth(false);
@@ -106,9 +123,9 @@ const App: React.FC = () => {
 
       if (error) throw error;
       setView('home');
-    } catch (error) {
-      console.error('Error saving profile:', error);
-      alert('Erro ao salvar perfil. Tente novamente.');
+    } catch (error: any) {
+      console.error('Erro ao salvar perfil:', error);
+      alert('Erro ao salvar perfil: ' + (error.message || 'Tente novamente.'));
     } finally {
       setIsSavingProfile(false);
     }
@@ -133,6 +150,11 @@ const App: React.FC = () => {
       <span className="text-lg">{label}</span>
     </button>
   );
+
+  // Se precisar de configuração, exibe a tela de config antes de qualquer coisa
+  if (needsConfig) {
+    return <SystemConfig />;
+  }
 
   if (loadingAuth) {
     return (
@@ -164,20 +186,26 @@ const App: React.FC = () => {
                  placeholder="Seu nome"
                />
                <div className="grid grid-cols-2 gap-4">
-                 <input 
-                   type="number" 
-                   placeholder="Peso (kg)"
-                   value={user.weight}
-                   onChange={e => setUser({...user, weight: Number(e.target.value)})}
-                   className="bg-white/10 border border-white/20 rounded-xl p-4 text-white"
-                 />
-                 <input 
-                   type="number" 
-                   placeholder="Altura (cm)"
-                   value={user.height}
-                   onChange={e => setUser({...user, height: Number(e.target.value)})}
-                   className="bg-white/10 border border-white/20 rounded-xl p-4 text-white"
-                 />
+                 <div className="space-y-1">
+                    <label className="text-xs text-pink-200 ml-1">Peso (kg)</label>
+                    <input 
+                        type="number" 
+                        placeholder="Ex: 70"
+                        value={user.weight}
+                        onChange={e => setUser({...user, weight: Number(e.target.value)})}
+                        className="w-full bg-white/10 border border-white/20 rounded-xl p-4 text-white"
+                    />
+                 </div>
+                 <div className="space-y-1">
+                    <label className="text-xs text-pink-200 ml-1">Altura (cm)</label>
+                    <input 
+                        type="number" 
+                        placeholder="Ex: 175"
+                        value={user.height}
+                        onChange={e => setUser({...user, height: Number(e.target.value)})}
+                        className="w-full bg-white/10 border border-white/20 rounded-xl p-4 text-white"
+                    />
+                 </div>
                </div>
                <button onClick={() => setFormStep(1)} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl mt-4 transition-transform active:scale-95">
                  Próximo
@@ -257,7 +285,7 @@ const App: React.FC = () => {
           )}
           
            <div className="mt-4 text-center">
-            <button onClick={handleLogout} className="text-gray-300 text-sm underline">Sair da conta</button>
+            <button onClick={handleLogout} className="text-gray-300 text-sm underline">Cancelar</button>
            </div>
         </div>
       </div>
@@ -280,7 +308,7 @@ const App: React.FC = () => {
             <NavButton id="chat" icon={MessageSquare} label="Treinador IA" />
             <NavButton id="affiliate" icon={TrendingUp} label="Área de Afiliado" />
             <button onClick={handleLogout} className="flex items-center gap-3 w-full p-4 rounded-xl text-red-400 hover:bg-white/10 mt-8">
-               <X size={24} /> Sair
+               <LogOut size={24} /> Sair
             </button>
           </div>
         </div>
@@ -306,15 +334,15 @@ const App: React.FC = () => {
         <div className="mt-auto pt-6 border-t border-white/10 space-y-4">
           <div className="flex items-center gap-3 bg-white/5 p-3 rounded-xl">
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-600 to-pink-600 flex items-center justify-center text-white font-bold shadow-lg shadow-red-900/50">
-              {user.name.charAt(0).toUpperCase()}
+              {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
             </div>
             <div>
-              <p className="text-white font-bold text-sm truncate max-w-[120px]">{user.name}</p>
+              <p className="text-white font-bold text-sm truncate max-w-[120px]">{user.name || 'Usuário'}</p>
               <p className="text-pink-200 text-xs">{user.goal}</p>
             </div>
           </div>
-          <button onClick={handleLogout} className="w-full text-center text-xs text-gray-500 hover:text-white transition-colors">
-             Encerrar Sessão
+          <button onClick={handleLogout} className="w-full text-center text-xs text-gray-500 hover:text-white transition-colors flex items-center justify-center gap-2">
+             <LogOut size={14} /> Encerrar Sessão
           </button>
         </div>
       </aside>

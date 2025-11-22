@@ -1,6 +1,8 @@
+
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Dumbbell, Lock, Mail, ArrowRight, Loader2 } from 'lucide-react';
+import { Dumbbell, Lock, Mail, ArrowRight, Loader2, AlertTriangle, Settings } from 'lucide-react';
+import SystemConfig from './SystemConfig';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -8,6 +10,7 @@ const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showConfig, setShowConfig] = useState(false);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,89 +33,128 @@ const Login: React.FC = () => {
         if (error) throw error;
       }
     } catch (err: any) {
-      setError(err.message || 'Ocorreu um erro na autenticação.');
+      console.error(err);
+      const msg = err.message || '';
+      
+      if (msg.includes('Failed to fetch') || msg.includes('fetch failed')) {
+          setError('Falha na conexão. Verifique as configurações do banco de dados.');
+          // Aqui poderíamos sugerir abrir a config, mas o App.tsx gerencia o estado global.
+          // Como estamos dentro do Login, podemos dar um jeito de o usuário consertar.
+          setShowConfig(true);
+      } else if (msg.includes('Invalid login')) {
+          setError('Email ou senha incorretos.');
+      } else {
+          setError(msg || 'Ocorreu um erro na autenticação.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
+  if (showConfig) {
+      return <SystemConfig />;
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#2b0f0f] via-[#500000] to-[#1a0505] flex items-center justify-center p-6 font-inter">
-      <div className="max-w-md w-full bg-black/40 backdrop-blur-xl p-8 rounded-3xl border border-white/10 shadow-2xl relative overflow-hidden">
-        
-        {/* Background Decor */}
-        <div className="absolute top-0 right-0 w-32 h-32 bg-red-600 blur-[60px] opacity-20 rounded-full pointer-events-none"></div>
-        
-        <div className="text-center mb-8 relative z-10">
-          <div className="flex justify-center mb-4">
-            <div className="w-16 h-16 bg-gradient-to-br from-red-600 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg shadow-red-900/50">
-              <Dumbbell size={32} className="text-white" />
-            </div>
+    <div className="min-h-screen flex bg-[#1a0505] font-inter">
+      {/* Lado Esquerdo - Visual */}
+      <div className="hidden lg:flex w-1/2 bg-gradient-to-br from-black to-red-950 relative items-center justify-center overflow-hidden">
+        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1470&auto=format&fit=crop')] bg-cover bg-center opacity-30 mix-blend-overlay"></div>
+        <div className="relative z-10 text-center p-12">
+          <div className="bg-red-600 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-8 shadow-[0_0_40px_rgba(220,38,38,0.5)]">
+            <Dumbbell className="text-white w-10 h-10" />
           </div>
-          <h1 className="text-3xl font-black text-white tracking-tighter">ACER FITNESS <span className="text-red-500">PRO</span></h1>
-          <p className="text-pink-200 mt-2 text-sm">Acesse sua área exclusiva de performance</p>
+          <h1 className="text-6xl font-black text-white tracking-tighter mb-4">
+            DOMINE SEU <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-pink-600">POTENCIAL</span>
+          </h1>
+          <p className="text-gray-400 text-lg max-w-md mx-auto">
+            A plataforma de IA mais avançada para treinos personalizados, dieta flexível e alta performance.
+          </p>
         </div>
+      </div>
 
-        <form onSubmit={handleAuth} className="space-y-4 relative z-10">
-          {error && (
-            <div className="bg-red-900/50 border border-red-500 text-red-200 text-xs p-3 rounded-xl">
-              {error}
-            </div>
-          )}
+      {/* Lado Direito - Form */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 relative">
+        <button 
+            onClick={() => setShowConfig(true)}
+            className="absolute top-6 right-6 text-gray-600 hover:text-white transition-colors"
+            title="Configurar Banco de Dados"
+        >
+            <Settings size={20} />
+        </button>
 
-          <div className="space-y-2">
-            <label className="text-xs text-gray-300 font-bold uppercase ml-1">Email</label>
-            <div className="relative">
-              <Mail className="absolute left-4 top-3.5 text-gray-400" size={18} />
-              <input 
-                type="email" 
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 text-white pl-12 pr-4 py-3 rounded-xl focus:outline-none focus:border-red-500 transition-all placeholder-gray-500"
-                placeholder="seu@email.com"
-                required
-              />
-            </div>
+        <div className="max-w-md w-full space-y-8">
+          <div className="text-center lg:hidden mb-8">
+             <h1 className="text-4xl font-black text-white tracking-tighter">ACER FITNESS <span className="text-red-500">PRO</span></h1>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-xs text-gray-300 font-bold uppercase ml-1">Senha</label>
-            <div className="relative">
-              <Lock className="absolute left-4 top-3.5 text-gray-400" size={18} />
-              <input 
-                type="password" 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 text-white pl-12 pr-4 py-3 rounded-xl focus:outline-none focus:border-red-500 transition-all placeholder-gray-500"
-                placeholder="••••••••"
-                required
-                minLength={6}
-              />
-            </div>
-          </div>
+          <div className="bg-white/5 backdrop-blur-xl p-8 rounded-3xl border border-white/10 shadow-2xl">
+            <h2 className="text-3xl font-bold text-white mb-2">{isSignUp ? 'Criar Conta' : 'Bem-vindo de volta'}</h2>
+            <p className="text-gray-400 mb-8">Entre para acessar sua área de alta performance.</p>
 
-          <button 
-            type="submit" 
-            disabled={loading}
-            className="w-full bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-red-900/30 mt-6 flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-70"
-          >
-            {loading ? (
-              <Loader2 className="animate-spin" />
-            ) : (
-              <>
-                {isSignUp ? 'Criar Conta Grátis' : 'Entrar no App'} <ArrowRight size={20} />
-              </>
+            {error && (
+              <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-xl mb-6 flex items-start gap-3">
+                <AlertTriangle className="text-red-500 shrink-0" size={20} />
+                <p className="text-red-200 text-sm">{error}</p>
+              </div>
             )}
-          </button>
-        </form>
 
-        <div className="mt-6 text-center">
-          <button 
-            onClick={() => setIsSignUp(!isSignUp)}
-            className="text-sm text-gray-400 hover:text-white transition-colors underline decoration-red-500/30 hover:decoration-red-500"
-          >
-            {isSignUp ? 'Já tem uma conta? Faça login' : 'Ainda não tem conta? Cadastre-se'}
-          </button>
+            <form onSubmit={handleAuth} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-400 uppercase mb-1 ml-1">Email</label>
+                <div className="relative">
+                  <Mail className="absolute left-4 top-3.5 text-gray-500" size={20} />
+                  <input 
+                    type="email" 
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full bg-black/40 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white focus:border-red-500 focus:outline-none transition-colors"
+                    placeholder="seu@email.com"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-400 uppercase mb-1 ml-1">Senha</label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-3.5 text-gray-500" size={20} />
+                  <input 
+                    type="password" 
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full bg-black/40 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white focus:border-red-500 focus:outline-none transition-colors"
+                    placeholder="••••••••"
+                  />
+                </div>
+              </div>
+
+              <button 
+                type="submit" 
+                disabled={loading}
+                className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-red-900/30 transition-all transform active:scale-95 flex items-center justify-center gap-2 mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? <Loader2 className="animate-spin" /> : (
+                  <>
+                    {isSignUp ? 'Criar Conta Grátis' : 'Entrar no Sistema'} <ArrowRight size={20} />
+                  </>
+                )}
+              </button>
+            </form>
+
+            <div className="mt-6 text-center">
+              <p className="text-gray-400 text-sm">
+                {isSignUp ? 'Já tem uma conta?' : 'Não tem uma conta?'}
+                <button 
+                  onClick={() => setIsSignUp(!isSignUp)}
+                  className="ml-2 text-white font-bold hover:underline"
+                >
+                  {isSignUp ? 'Faça login' : 'Cadastre-se'}
+                </button>
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
