@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { UserProfile, WeeklyWorkoutPlan, Exercise } from '../types';
 import { generateWeeklyWorkout, swapExercise } from '../services/geminiService';

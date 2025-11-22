@@ -1,7 +1,6 @@
-
 import { UserProfile, WeeklyWorkoutPlan, DietPlan, Exercise, Meal, UserGoal, UserLevel } from "../types";
 
-// --- BANCO DE DADOS ESTÁTICO DE EXERCÍCIOS (COM GIFS/IMAGENS) ---
+// --- BANCO DE DADOS ESTÁTICO DE EXERCÍCIOS (COM GIFS/IMAGENS DIRETAS) ---
 
 interface DBExercise {
   id: string;
@@ -14,7 +13,7 @@ interface DBExercise {
   baseWeight: number; 
 }
 
-// Lista curada de exercícios com URLs de visualização
+// Lista curada de exercícios com URLs diretas (i.giphy.com) para evitar bloqueio de referrer
 const EXERCISE_DB: DBExercise[] = [
   // --- PEITO ---
   { 
@@ -24,7 +23,7 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Compound', 
     locations: ['Academia'], 
     difficulty: [UserLevel.INTERMEDIATE, UserLevel.ADVANCED],
-    gifUrl: "https://media.giphy.com/media/l4KibWpBGWchSqCRy/giphy.gif", 
+    gifUrl: "https://i.giphy.com/media/l4KibWpBGWchSqCRy/giphy.gif", 
     baseWeight: 10 
   },
   { 
@@ -34,7 +33,7 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Compound', 
     locations: ['Academia', 'Casa'], 
     difficulty: [UserLevel.BEGINNER, UserLevel.INTERMEDIATE, UserLevel.ADVANCED], 
-    gifUrl: "https://media.giphy.com/media/z0w9gXhW9d6yk/giphy.gif",
+    gifUrl: "https://i.giphy.com/media/z0w9gXhW9d6yk/giphy.gif",
     baseWeight: 8 
   },
   { 
@@ -44,17 +43,17 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Compound', 
     locations: ['Academia', 'Casa'], 
     difficulty: [UserLevel.INTERMEDIATE, UserLevel.ADVANCED], 
-    gifUrl: "https://media.giphy.com/media/26AHG5KGFxSkQLBV6/giphy.gif",
+    gifUrl: "https://i.giphy.com/media/26AHG5KGFxSkQLBV6/giphy.gif",
     baseWeight: 6 
   },
   { 
     id: 'pushups', 
-    name: 'Flexão de Braço Clássica', 
+    name: 'Flexão de Braço', 
     group: 'Peito', 
     type: 'Compound', 
     locations: ['Casa', 'Ar Livre', 'Academia'], 
     difficulty: [UserLevel.BEGINNER, UserLevel.INTERMEDIATE], 
-    gifUrl: "https://media.giphy.com/media/K61Cq32d22K5y/giphy.gif",
+    gifUrl: "https://i.giphy.com/media/K61Cq32d22K5y/giphy.gif",
     baseWeight: 0 
   },
   { 
@@ -64,7 +63,7 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Isolation', 
     locations: ['Academia'], 
     difficulty: [UserLevel.BEGINNER, UserLevel.INTERMEDIATE], 
-    gifUrl: "https://media.giphy.com/media/3o7TqyH91v0LdsN09q/giphy.gif",
+    gifUrl: "https://i.giphy.com/media/3o7TqyH91v0LdsN09q/giphy.gif",
     baseWeight: 15 
   },
 
@@ -76,7 +75,7 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Compound', 
     locations: ['Academia', 'Ar Livre'], 
     difficulty: [UserLevel.ADVANCED], 
-    gifUrl: "https://media.giphy.com/media/eM85pXv6u1YTC/giphy.gif",
+    gifUrl: "https://i.giphy.com/media/eM85pXv6u1YTC/giphy.gif",
     baseWeight: 0 
   },
   { 
@@ -86,7 +85,7 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Compound', 
     locations: ['Academia'], 
     difficulty: [UserLevel.BEGINNER, UserLevel.INTERMEDIATE], 
-    gifUrl: "https://media.giphy.com/media/111ebonMs90YLu/giphy.gif",
+    gifUrl: "https://i.giphy.com/media/111ebonMs90YLu/giphy.gif",
     baseWeight: 20 
   },
   { 
@@ -96,7 +95,7 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Compound', 
     locations: ['Academia', 'Casa'], 
     difficulty: [UserLevel.BEGINNER, UserLevel.INTERMEDIATE], 
-    gifUrl: "https://media.giphy.com/media/Topw2Z9Y1s61a/giphy.gif",
+    gifUrl: "https://i.giphy.com/media/Topw2Z9Y1s61a/giphy.gif",
     baseWeight: 8 
   },
   { 
@@ -106,7 +105,7 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Compound', 
     locations: ['Academia'], 
     difficulty: [UserLevel.BEGINNER, UserLevel.INTERMEDIATE], 
-    gifUrl: "https://media.giphy.com/media/G6qX9mC6CkHAs/giphy.gif",
+    gifUrl: "https://i.giphy.com/media/G6qX9mC6CkHAs/giphy.gif",
     baseWeight: 20 
   },
 
@@ -118,7 +117,7 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Compound', 
     locations: ['Academia'], 
     difficulty: [UserLevel.INTERMEDIATE, UserLevel.ADVANCED], 
-    gifUrl: "https://media.giphy.com/media/xT4uQzQonxDb755FCM/giphy.gif",
+    gifUrl: "https://i.giphy.com/media/xT4uQzQonxDb755FCM/giphy.gif",
     baseWeight: 10 
   },
   { 
@@ -128,7 +127,7 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Compound', 
     locations: ['Academia'], 
     difficulty: [UserLevel.BEGINNER, UserLevel.INTERMEDIATE], 
-    gifUrl: "https://media.giphy.com/media/3oKIPa2TdahY8LAAxy/giphy.gif",
+    gifUrl: "https://i.giphy.com/media/3oKIPa2TdahY8LAAxy/giphy.gif",
     baseWeight: 40 
   },
   { 
@@ -138,7 +137,7 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Compound', 
     locations: ['Academia', 'Casa', 'Ar Livre'], 
     difficulty: [UserLevel.BEGINNER, UserLevel.INTERMEDIATE], 
-    gifUrl: "https://media.giphy.com/media/3o6Zt9y2JCjf450T3q/giphy.gif",
+    gifUrl: "https://i.giphy.com/media/3o6Zt9y2JCjf450T3q/giphy.gif",
     baseWeight: 0 
   },
   { 
@@ -148,7 +147,7 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Isolation', 
     locations: ['Academia'], 
     difficulty: [UserLevel.BEGINNER], 
-    gifUrl: "https://media.giphy.com/media/3o7qE0gOGwzPbH81Qk/giphy.gif",
+    gifUrl: "https://i.giphy.com/media/3o7qE0gOGwzPbH81Qk/giphy.gif",
     baseWeight: 15 
   },
   { 
@@ -158,7 +157,7 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Compound', 
     locations: ['Academia', 'Casa'], 
     difficulty: [UserLevel.INTERMEDIATE], 
-    gifUrl: "https://media.giphy.com/media/l2JeaXSlN7al98Kn6/giphy.gif",
+    gifUrl: "https://i.giphy.com/media/l2JeaXSlN7al98Kn6/giphy.gif",
     baseWeight: 10 
   },
 
@@ -170,7 +169,7 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Compound', 
     locations: ['Academia'], 
     difficulty: [UserLevel.INTERMEDIATE], 
-    gifUrl: "https://media.giphy.com/media/3o6ZtpWvwnhf34Oj0A/giphy.gif",
+    gifUrl: "https://i.giphy.com/media/3o6ZtpWvwnhf34Oj0A/giphy.gif",
     baseWeight: 5 
   },
   { 
@@ -180,7 +179,7 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Isolation', 
     locations: ['Academia', 'Casa'], 
     difficulty: [UserLevel.BEGINNER], 
-    gifUrl: "https://media.giphy.com/media/3o6ZtailN3p7m8xTMc/giphy.gif",
+    gifUrl: "https://i.giphy.com/media/3o6ZtailN3p7m8xTMc/giphy.gif",
     baseWeight: 4 
   },
 
@@ -192,7 +191,7 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Isolation', 
     locations: ['Academia', 'Casa'], 
     difficulty: [UserLevel.BEGINNER], 
-    gifUrl: "https://media.giphy.com/media/l0HlPtbGpcnqa0fXA/giphy.gif",
+    gifUrl: "https://i.giphy.com/media/l0HlPtbGpcnqa0fXA/giphy.gif",
     baseWeight: 5 
   },
   { 
@@ -202,7 +201,7 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Isolation', 
     locations: ['Academia'], 
     difficulty: [UserLevel.BEGINNER], 
-    gifUrl: "https://media.giphy.com/media/3o7TKUM3IgJBX2as9O/giphy.gif",
+    gifUrl: "https://i.giphy.com/media/3o7TKUM3IgJBX2as9O/giphy.gif",
     baseWeight: 15 
   },
 
@@ -214,7 +213,7 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Isolation', 
     locations: ['Academia', 'Casa', 'Ar Livre'], 
     difficulty: [UserLevel.BEGINNER], 
-    gifUrl: "https://media.giphy.com/media/xT8qBff8cRCNZnk58s/giphy.gif",
+    gifUrl: "https://i.giphy.com/media/xT8qBff8cRCNZnk58s/giphy.gif",
     baseWeight: 0 
   },
   { 
@@ -224,7 +223,7 @@ const EXERCISE_DB: DBExercise[] = [
     type: 'Compound', 
     locations: ['Academia', 'Ar Livre'], 
     difficulty: [UserLevel.BEGINNER], 
-    gifUrl: "https://media.giphy.com/media/l2JHVUriDGEtJ8l0c/giphy.gif",
+    gifUrl: "https://i.giphy.com/media/l2JHVUriDGEtJ8l0c/giphy.gif",
     baseWeight: 0 
   }
 ];
@@ -326,9 +325,7 @@ const getTips = (group: string, type: string): string => {
 // --- CORE GENERATION LOGIC (PURELY ALGORITHMIC) ---
 
 export const generateWeeklyWorkout = async (profile: UserProfile): Promise<WeeklyWorkoutPlan | null> => {
-  // Simula tempo de processamento
-  await new Promise(r => setTimeout(r, 500));
-
+  // No artificial delay needed - instant generation
   let splitStructure: { name: string; focus: string; groups: string[] }[] = [];
   
   // 1. Determine Split based on Level & Frequency
@@ -459,7 +456,7 @@ export const swapExercise = async (currentExercise: Exercise, userGoal: string):
 };
 
 export const generateDiet = async (profile: UserProfile, budget: number, period: 'Diário' | 'Semanal' | 'Mensal'): Promise<DietPlan | null> => {
-  await new Promise(r => setTimeout(r, 500));
+  // Instant generation
   const bmr = 10 * profile.weight + 6.25 * profile.height - 5 * profile.age + 5;
   let tdee = bmr * 1.35;
   if (profile.goal === UserGoal.LOSE_WEIGHT) tdee -= 500;
@@ -544,7 +541,7 @@ export const generateDiet = async (profile: UserProfile, budget: number, period:
 
 // SISTEMA ESTÁTICO DE COPY (SEM IA)
 export const generateAffiliateCopy = async (type: 'whatsapp' | 'instagram' | 'email'): Promise<string> => {
-  await new Promise(r => setTimeout(r, 600)); // Simula processamento
+  // Instant response
   const templates = {
     whatsapp: [
       "🔥 Galera, comecei a usar o Acer Fitness PRO e tá insano! Treinos personalizados e dieta barata. Quem quiser testar, clica aqui: [LINK]",
@@ -567,8 +564,7 @@ export const generateAffiliateCopy = async (type: 'whatsapp' | 'instagram' | 'em
 
 // SISTEMA ESTÁTICO DE CHAT (SEM IA)
 export const chatWithTrainer = async (message: string, context: string): Promise<string> => {
-  await new Promise(r => setTimeout(r, 800)); // Simula digitação
-  
+  // Instant response
   const msg = message.toLowerCase();
 
   if (msg.includes("dor") || msg.includes("machuc") || msg.includes("lesão")) {
