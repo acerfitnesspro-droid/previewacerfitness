@@ -31,9 +31,11 @@ export interface Exercise {
   sets: number;
   reps: string;
   restSeconds: number;
+  suggestedWeight?: number; // Carga sugerida pelo sistema
   instructions: string;
   tips: string;
   alternative?: string; // For AI suggestion
+  gifUrl?: string; // Visual example
 }
 
 export interface WorkoutDay {
