@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase, isSupabaseConfigured } from './lib/supabase';
+import { supabase } from './lib/supabase';
 import { UserProfile, UserGoal, UserLevel, UserGender, PlanType } from './types';
 import Login from './components/Login';
 import WorkoutDashboard from './components/WorkoutDashboard';
@@ -7,7 +7,6 @@ import DietGenerator from './components/DietGenerator';
 import ChatAssistant from './components/ChatAssistant';
 import AffiliateDashboard from './components/AffiliateDashboard';
 import DashboardHome from './components/DashboardHome';
-import SystemConfig from './components/SystemConfig';
 import { Dumbbell, Utensils, MessageSquare, TrendingUp, Home, Menu, X, Loader2, LogOut, User, UserCheck } from 'lucide-react';
 
 const INITIAL_USER_TEMPLATE: UserProfile = {
@@ -31,26 +30,12 @@ const App: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [formStep, setFormStep] = useState(0);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
-  const [needsConfig, setNeedsConfig] = useState(false);
 
   useEffect(() => {
-    // 1. Verificar se o Supabase está configurado
-    if (!isSupabaseConfigured()) {
-      setNeedsConfig(true);
-      setLoadingAuth(false);
-      return;
-    }
-
-    // 2. Verificar sessão ativa
+    // 1. Verificar sessão ativa
     supabase.auth.getSession().then(({ data: { session }, error }) => {
       if (error) {
         console.error("Error fetching session:", error);
-        // Se a chave for inválida, o getSession pode falhar
-        if (error.message?.includes('fetch') || error.message?.includes('apikey')) {
-           setNeedsConfig(true);
-           setLoadingAuth(false);
-           return;
-        }
       }
       
       setSession(session);
@@ -58,7 +43,7 @@ const App: React.FC = () => {
       else setLoadingAuth(false);
     });
 
-    // 3. Ouvir mudanças na autenticação
+    // 2. Ouvir mudanças na autenticação
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -83,23 +68,9 @@ const App: React.FC = () => {
         .single();
 
       if (error) {
-        console.error("Erro ao buscar perfil:", error);
-        
-        // Verificação robusta de erros de conexão
-        const errorMsg = error.message?.toLowerCase() || '';
-        const isConnectionError = errorMsg.includes('fetch') || 
-                                  errorMsg.includes('connection') || 
-                                  errorMsg.includes('network') ||
-                                  errorMsg.includes('apikey');
-
-        if (isConnectionError) {
-            setNeedsConfig(true);
-            return;
-        }
-        
-        // Se não encontrou perfil (PGRST116), vai pro onboarding. Se for outro erro, loga.
+        // Se não encontrou perfil (PGRST116), vai pro onboarding.
         if (error.code !== 'PGRST116') {
-             console.warn("Erro desconhecido ao carregar perfil, redirecionando para onboarding.");
+             console.warn("Erro ao carregar perfil:", error.message);
         }
         setView('onboarding');
       } else if (data) {
@@ -114,7 +85,6 @@ const App: React.FC = () => {
           level: data.level as UserLevel,
           location: data.location as any,
           budget: data.budget,
-          // Se a coluna plan_type existir no banco, use-a. Senão fallback.
           planType: (data.plan_type as PlanType) || PlanType.PLANO_TREINO_DIETA
         });
         setView('home');
@@ -123,11 +93,7 @@ const App: React.FC = () => {
       }
     } catch (error: any) {
       console.error('Exceção ao buscar perfil:', error);
-      if (error.message?.includes('fetch')) {
-          setNeedsConfig(true);
-      } else {
-          setView('onboarding');
-      }
+      setView('onboarding');
     } finally {
       setLoadingAuth(false);
     }
@@ -151,7 +117,8 @@ const App: React.FC = () => {
           level: user.level,
           location: user.location,
           budget: user.budget,
-          plan_type: user.planType // Salva o plano default
+          // Mantém o plano que veio do cadastro (se existir no user state) ou usa o default
+          plan_type: user.planType 
         });
 
       if (error) throw error;
@@ -185,11 +152,6 @@ const App: React.FC = () => {
       <span className="text-lg">{label}</span>
     </button>
   );
-
-  // Se a URL/Key do Supabase não estiverem configuradas, mostra a tela de config
-  if (needsConfig) {
-    return <SystemConfig />;
-  }
 
   if (loadingAuth) {
     return (
