@@ -1,5 +1,5 @@
 
-import { AffiliateLevel, PlanType, CommissionTransaction, AffiliateProfile } from "../types";
+import { AffiliateLevel, PlanType, CommissionTransaction } from "../types";
 import { supabase } from "../lib/supabase";
 
 // --- CONSTANTES DE NEGÓCIO ---
@@ -10,40 +10,23 @@ export const PLANS = {
   [PlanType.PLANO_SOMENTE_DIETA]: { label: "Plano B (Só Dieta)", price: 34.90 },
 };
 
-const OWNER_COMMISSION_MAP = {
-  [PlanType.PLANO_TREINO_DIETA]: 27.90,
-  [PlanType.PLANO_SOMENTE_TREINO]: 14.90,
-  [PlanType.PLANO_SOMENTE_DIETA]: 14.90,
-};
-
 const FIXED_COMMISSION = 10.00;
 
 // --- LÓGICA DE CÁLCULO ---
 
 export const calculateCommission = (planKey: PlanType, affiliateLevel: AffiliateLevel): number => {
-  if (affiliateLevel === AffiliateLevel.OWNER) {
-    return OWNER_COMMISSION_MAP[planKey] || 0;
-  }
-  if (affiliateLevel === AffiliateLevel.MANAGER || affiliateLevel === AffiliateLevel.AFFILIATE) {
-    return FIXED_COMMISSION;
-  }
-  return 0;
+  // Valor único independente do nível ou plano
+  return FIXED_COMMISSION;
 };
 
 // --- SERVIÇOS CONECTADOS AO SUPABASE ---
 
 export const getAffiliateStats = async (affiliateId: string): Promise<any> => {
-  // Tenta pegar o afiliado real. Se não existir, usa dados de fallback para não quebrar a UI
-  // Em produção, o usuário logado seria o affiliateId (auth.uid)
-  
-  // Para fins de teste, vamos buscar as transações baseadas no ID passado ou no usuário logado
   const { data: session } = await supabase.auth.getSession();
   const userId = session.session?.user?.id;
 
-  // Se não tiver userId, retorna vazio ou mock
   if (!userId) return { clicks: 0, signups: 0, conversions: 0, earnings: 0, pendingPayout: 0, paidPayout: 0, transactions: [] };
 
-  // Busca Transações Reais
   const { data: txns, error } = await supabase
     .from('commissions')
     .select('*')
@@ -83,8 +66,7 @@ export const getAffiliateStats = async (affiliateId: string): Promise<any> => {
 };
 
 /**
- * Simula o recebimento de um Webhook.
- * Agora insere de verdade na tabela `commissions`.
+ * Processa pagamento (Webhook simulado ou real)
  */
 export const processPaymentWebhook = async (payload: { 
   orderId: string, 
@@ -97,18 +79,14 @@ export const processPaymentWebhook = async (payload: {
   const { data: session } = await supabase.auth.getSession();
   const currentUserId = session.session?.user?.id;
 
-  // Lógica: Se o código for igual ao meu, atribui a mim. Se não, atribui aos DONOS (mockado para fins de teste)
-  // Em produção, buscaríamos o ID do dono do código na tabela `affiliates`
   let affiliateId = currentUserId; 
   let level = AffiliateLevel.AFFILIATE;
 
-  // Se não tiver usuário logado ou código for diferente, simular atribuição 'fantasma' ou para Owner
   if (!currentUserId) {
-     // Fallback apenas para não quebrar se testar deslogado
-     throw new Error("Precisa estar logado para simular venda atribuída.");
+     throw new Error("Precisa estar logado para processar venda.");
   }
 
-  // 2. Calcular Comissão
+  // 2. Calcular Comissão (Fixa R$ 10)
   const commissionValue = calculateCommission(payload.planKey, level);
 
   // 3. Inserir no Banco

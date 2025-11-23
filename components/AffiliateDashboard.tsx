@@ -1,51 +1,30 @@
 
 import React, { useState, useEffect } from 'react';
-import { AffiliateLevel, PlanType, CommissionTransaction } from '../types';
-import { getAffiliateStats, processPaymentWebhook, PLANS, generateAffiliateLink } from '../services/affiliateService';
+import { AffiliateLevel, CommissionTransaction } from '../types';
+import { getAffiliateStats, generateAffiliateLink } from '../services/affiliateService';
 import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
 } from 'recharts';
-import { Copy, Check, Share2, DollarSign, Users, MousePointer, Calendar, ArrowRight, RefreshCw, PlusCircle, Briefcase, CreditCard, UserCheck, Activity } from 'lucide-react';
+import { Copy, Activity, CreditCard, DollarSign, RefreshCw, Briefcase, Users } from 'lucide-react';
 
 const AffiliateDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'transactions' | 'simulator'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'transactions'>('overview');
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState<any>(null);
   const [userCode] = useState("USER_8821");
-  const [userLevel] = useState<AffiliateLevel>(AffiliateLevel.AFFILIATE); // Troque para OWNER ou MANAGER para testar outras visões
-  
-  // State para o Simulador
-  const [simPlan, setSimPlan] = useState<PlanType>(PlanType.PLANO_TREINO_DIETA);
-  const [simBuyer, setSimBuyer] = useState("Novo Usuário");
-  const [simCode, setSimCode] = useState(userCode);
-  const [lastSimResult, setLastSimResult] = useState<CommissionTransaction | null>(null);
+  const [userLevel] = useState<AffiliateLevel>(AffiliateLevel.AFFILIATE);
 
   const loadData = async () => {
     setLoading(true);
     // No cenário real, pegaria o ID do usuário logado
-    const data = await getAffiliateStats(userLevel === AffiliateLevel.OWNER ? 'owner_001' : 'user_123');
+    const data = await getAffiliateStats('user_123');
     setStats(data);
     setLoading(false);
   };
 
   useEffect(() => {
     loadData();
-  }, [activeTab]); // Recarrega ao mudar de aba para refletir simulações
-
-  const handleSimulateSale = async () => {
-    setLoading(true);
-    const result = await processPaymentWebhook({
-      orderId: `ord_${Math.floor(Math.random() * 10000)}`,
-      planKey: simPlan,
-      affiliateCode: simCode,
-      buyerName: simBuyer,
-      amount: PLANS[simPlan].price
-    });
-    setLastSimResult(result);
-    setLoading(false);
-    // Atualiza stats após simulação
-    loadData();
-  };
+  }, [activeTab]);
 
   // Chart Data Mock Generator
   const getChartData = () => {
@@ -75,18 +54,18 @@ const AffiliateDashboard: React.FC = () => {
                Nível: <span className="text-red-500">{userLevel}</span>
             </h1>
             <p className="text-gray-400 text-sm mt-2 max-w-md">
-               {userLevel === AffiliateLevel.OWNER 
-                  ? "Visão global de todas as vendas e comissões da plataforma." 
-                  : "Divulgue seu link e ganhe comissões recorrentes por cada assinatura ativa."}
+               Divulgue seu link exclusivo. Cada venda realizada através dele gera uma comissão fixa de <strong>R$ 10,00</strong> para você.
             </p>
          </div>
          <div className="bg-white/5 p-3 rounded-xl border border-white/10">
-            <span className="text-xs text-gray-400 block mb-1">Seu Código</span>
+            <span className="text-xs text-gray-400 block mb-1">Seu Link de Indicação</span>
             <div className="flex items-center gap-2">
-               <code className="text-white font-mono font-bold bg-black/40 px-2 py-1 rounded">{userCode}</code>
+               <code className="text-white font-mono font-bold bg-black/40 px-2 py-1 rounded text-xs md:text-sm truncate max-w-[200px]">
+                 {generateAffiliateLink(userCode)}
+               </code>
                <button 
                   onClick={() => navigator.clipboard.writeText(generateAffiliateLink(userCode))}
-                  className="text-red-400 hover:text-white"
+                  className="text-red-400 hover:text-white p-2 bg-white/5 rounded-lg"
                   title="Copiar Link"
                >
                   <Copy size={16}/>
@@ -99,8 +78,7 @@ const AffiliateDashboard: React.FC = () => {
       <div className="flex gap-2 overflow-x-auto pb-2">
          {[
            { id: 'overview', label: 'Visão Geral', icon: Activity },
-           { id: 'transactions', label: 'Extrato', icon: CreditCard },
-           { id: 'simulator', label: 'Simulador (Admin)', icon: PlusCircle },
+           { id: 'transactions', label: 'Extrato Financeiro', icon: CreditCard },
          ].map(tab => (
            <button
              key={tab.id}
@@ -183,7 +161,7 @@ const AffiliateDashboard: React.FC = () => {
          <div className="animate-fade-in bg-black/30 rounded-3xl border border-white/10 overflow-hidden">
             <div className="p-6 border-b border-white/10 flex justify-between items-center">
                <h3 className="text-lg font-bold text-white">Histórico de Comissões</h3>
-               <button className="text-xs text-red-400 font-bold hover:text-white transition-colors">Baixar CSV</button>
+               <div className="text-xs text-gray-400">Comissão Fixa: <strong>R$ 10,00</strong></div>
             </div>
             <div className="overflow-x-auto">
                <table className="w-full text-left">
@@ -191,7 +169,6 @@ const AffiliateDashboard: React.FC = () => {
                      <tr>
                         <th className="p-4">Data</th>
                         <th className="p-4">Cliente</th>
-                        <th className="p-4">Plano</th>
                         <th className="p-4 text-right">Comissão</th>
                         <th className="p-4 text-center">Status</th>
                      </tr>
@@ -201,11 +178,6 @@ const AffiliateDashboard: React.FC = () => {
                         <tr key={txn.id} className="hover:bg-white/5 transition-colors">
                            <td className="p-4 text-gray-400">{new Date(txn.createdAt).toLocaleDateString()}</td>
                            <td className="p-4 font-bold text-white">{txn.buyerName}</td>
-                           <td className="p-4 text-xs">
-                              <span className="bg-white/10 px-2 py-1 rounded border border-white/5">
-                                 {PLANS[txn.planType].label}
-                              </span>
-                           </td>
                            <td className="p-4 text-right font-bold text-green-400">+ R$ {txn.amount.toFixed(2)}</td>
                            <td className="p-4 text-center">
                               <span className={`text-[10px] font-bold px-2 py-1 rounded-full border ${
@@ -220,99 +192,11 @@ const AffiliateDashboard: React.FC = () => {
                      ))}
                      {stats.transactions.length === 0 && (
                         <tr>
-                           <td colSpan={5} className="p-8 text-center text-gray-500">Nenhuma venda registrada ainda.</td>
+                           <td colSpan={4} className="p-8 text-center text-gray-500">Nenhuma venda registrada ainda.</td>
                         </tr>
                      )}
                   </tbody>
                </table>
-            </div>
-         </div>
-      )}
-
-      {/* CONTENT: SIMULATOR (ADMIN FEATURE) */}
-      {activeTab === 'simulator' && (
-         <div className="animate-fade-in max-w-2xl mx-auto">
-            <div className="bg-gradient-to-br from-gray-900 to-black p-8 rounded-3xl border border-white/10 shadow-2xl relative overflow-hidden">
-               <div className="absolute top-0 right-0 bg-red-600 w-20 h-20 blur-[60px] opacity-20 rounded-full pointer-events-none"></div>
-               
-               <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-                  <CreditCard className="text-red-500"/> Simulador de Venda
-               </h3>
-               <p className="text-gray-400 text-sm mb-6">
-                  Use esta ferramenta para testar a lógica de atribuição de comissão. Simule uma compra como se fosse um usuário final.
-               </p>
-
-               <div className="space-y-4">
-                  <div>
-                     <label className="block text-xs text-gray-500 font-bold uppercase mb-1">Nome do Comprador</label>
-                     <input 
-                        type="text" 
-                        value={simBuyer}
-                        onChange={(e) => setSimBuyer(e.target.value)}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white focus:border-red-500 focus:outline-none"
-                     />
-                  </div>
-                  
-                  <div>
-                     <label className="block text-xs text-gray-500 font-bold uppercase mb-1">Plano Escolhido</label>
-                     <select 
-                        value={simPlan}
-                        onChange={(e) => setSimPlan(e.target.value as PlanType)}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white focus:border-red-500 focus:outline-none"
-                     >
-                        {Object.entries(PLANS).map(([key, val]) => (
-                           <option key={key} value={key}>{val.label} - R$ {val.price.toFixed(2)}</option>
-                        ))}
-                     </select>
-                  </div>
-
-                  <div>
-                     <label className="block text-xs text-gray-500 font-bold uppercase mb-1">Código de Afiliado Utilizado</label>
-                     <div className="flex gap-2">
-                        <input 
-                           type="text" 
-                           value={simCode}
-                           onChange={(e) => setSimCode(e.target.value)}
-                           className="flex-1 bg-white/5 border border-white/10 rounded-xl p-3 text-white focus:border-red-500 focus:outline-none"
-                           placeholder="Deixe vazio para simular venda orgânica (Donos)"
-                        />
-                        <button 
-                           onClick={() => setSimCode(userCode)}
-                           className="bg-white/10 px-3 rounded-xl text-xs font-bold text-gray-300 hover:bg-white/20"
-                        >
-                           Meu Cod.
-                        </button>
-                     </div>
-                     <p className="text-[10px] text-gray-500 mt-1">
-                        * Se o código for diferente do seu ({userCode}), a comissão não aparecerá no seu extrato, a menos que você seja Dono.
-                     </p>
-                  </div>
-
-                  <button 
-                     onClick={handleSimulateSale}
-                     disabled={loading}
-                     className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-green-900/30 mt-4 flex items-center justify-center gap-2 transition-transform active:scale-95"
-                  >
-                     {loading ? <RefreshCw className="animate-spin" /> : <Check />} Processar Pagamento Fictício
-                  </button>
-               </div>
-
-               {/* Simulation Result */}
-               {lastSimResult && (
-                  <div className="mt-6 bg-black/40 p-4 rounded-xl border border-green-500/30 animate-fade-in">
-                     <h4 className="text-green-400 font-bold text-sm mb-2 flex items-center gap-2">
-                        <Check size={14}/> Venda Processada com Sucesso!
-                     </h4>
-                     <div className="text-xs text-gray-300 space-y-1">
-                        <p>ID Pedido: <span className="text-white font-mono">{lastSimResult.orderId}</span></p>
-                        <p>Recebedor da Comissão: <span className="text-white font-bold">{lastSimResult.affiliateId === 'user_123' ? 'VOCÊ (Afiliado)' : 'DONOS DO APP'}</span></p>
-                        <p>Valor da Comissão: <span className="text-white font-bold text-lg">R$ {lastSimResult.amount.toFixed(2)}</span></p>
-                        <p className="text-gray-500 italic mt-2 border-t border-white/5 pt-2">
-                           * Verifique a aba "Extrato" para ver se esta transação aparece na sua lista.
-                        </p>
-                     </div>
-                  </div>
-               )}
             </div>
          </div>
       )}
