@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { UserProfile, UserGoal, UserLevel, UserGender, PlanType } from './types';
@@ -383,7 +382,7 @@ const App: React.FC = () => {
             <NavButton id="workout" icon={Dumbbell} label="Meu Treino" />
             <NavButton id="diet" icon={Utensils} label="Dieta Econômica" />
             <NavButton id="chat" icon={MessageSquare} label="Treinador IA" />
-            <NavButton id="affiliate" icon={TrendingUp} label="Área de Afiliado" />
+            <NavButton id="affiliate" icon={TrendingUp} label="Indique e Ganhe" />
             <button onClick={handleLogout} className="flex items-center gap-3 w-full p-4 rounded-xl text-red-400 hover:bg-white/10 mt-8">
                <LogOut size={24} /> Sair
             </button>
@@ -402,9 +401,9 @@ const App: React.FC = () => {
           <NavButton id="home" icon={Home} label="Visão Geral" />
           <NavButton id="workout" icon={Dumbbell} label="Treino" />
           <NavButton id="diet" icon={Utensils} label="Dieta" />
-          <NavButton id="chat" icon={MessageSquare} label="Chat IA" />
+          <NavButton id="chat" icon={MessageSquare} label="Suporte" />
           <div className="pt-6 mt-6 border-t border-white/10">
-            <NavButton id="affiliate" icon={TrendingUp} label="Afiliados" />
+            <NavButton id="affiliate" icon={TrendingUp} label="Indique e Ganhe" />
           </div>
         </nav>
         
@@ -438,7 +437,7 @@ const App: React.FC = () => {
             {view === 'workout' && <WorkoutDashboard user={user} />}
             {view === 'diet' && <DietGenerator user={user} />}
             {view === 'chat' && <ChatAssistant user={user} />}
-            {view === 'affiliate' && <AffiliateDashboard />}
+            {view === 'affiliate' && <AffiliateDashboard user={user} />}
           </div>
         </div>
       </main>

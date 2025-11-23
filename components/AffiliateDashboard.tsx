@@ -1,46 +1,48 @@
-
 import React, { useState, useEffect } from 'react';
-import { AffiliateLevel, CommissionTransaction } from '../types';
+import { AffiliateLevel, CommissionTransaction, UserProfile } from '../types';
 import { getAffiliateStats, generateAffiliateLink } from '../services/affiliateService';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
 } from 'recharts';
 import { Copy, Activity, CreditCard, DollarSign, RefreshCw, Briefcase, Users } from 'lucide-react';
 
-const AffiliateDashboard: React.FC = () => {
+interface Props {
+  user?: UserProfile;
+}
+
+const AffiliateDashboard: React.FC<Props> = ({ user }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'transactions'>('overview');
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState<any>(null);
   const [userCode] = useState("USER_8821");
-  const [userLevel] = useState<AffiliateLevel>(AffiliateLevel.AFFILIATE);
-
+  
   const loadData = async () => {
+    if (!user?.id) return;
     setLoading(true);
-    // No cenário real, pegaria o ID do usuário logado
-    const data = await getAffiliateStats('user_123');
+    const data = await getAffiliateStats(user.id);
     setStats(data);
     setLoading(false);
   };
 
   useEffect(() => {
     loadData();
-  }, [activeTab]);
+  }, [activeTab, user]);
 
-  // Chart Data Mock Generator
+  // Chart Data Mock Generator (apenas visual para o gráfico por enquanto)
   const getChartData = () => {
     return [
-      { name: 'Seg', sales: 4, amt: 40 },
-      { name: 'Ter', sales: 3, amt: 30 },
-      { name: 'Qua', sales: 2, amt: 20 },
-      { name: 'Qui', sales: 6, amt: 60 },
-      { name: 'Sex', sales: 8, amt: 80 },
-      { name: 'Sab', sales: 12, amt: 120 },
-      { name: 'Dom', sales: 9, amt: 90 },
+      { name: 'Seg', sales: 0, amt: 0 },
+      { name: 'Ter', sales: 0, amt: 0 },
+      { name: 'Qua', sales: 0, amt: 0 },
+      { name: 'Qui', sales: 0, amt: 0 },
+      { name: 'Sex', sales: 0, amt: 0 },
+      { name: 'Sab', sales: 0, amt: 0 },
+      { name: 'Dom', sales: 0, amt: 0 },
     ];
   };
 
-  if (!stats && loading) return <div className="p-10 text-white text-center"><RefreshCw className="animate-spin mx-auto"/> Carregando Painel...</div>;
-  if (!stats) return null;
+  if (loading && !stats) return <div className="p-10 text-white text-center"><RefreshCw className="animate-spin mx-auto"/> Carregando Painel...</div>;
+  if (!stats) return <div className="p-10 text-white text-center">Não foi possível carregar os dados.</div>;
 
   return (
     <div className="space-y-6 pb-24">
@@ -48,17 +50,17 @@ const AffiliateDashboard: React.FC = () => {
       <div className="flex flex-col md:flex-row justify-between items-end gap-4 bg-gradient-to-r from-[#1a0505] to-black p-6 rounded-3xl border border-white/10">
          <div>
             <div className="flex items-center gap-2 text-gray-400 text-xs font-bold uppercase tracking-widest mb-1">
-               <Briefcase size={14} className="text-red-500"/> Painel do Parceiro
+               <Briefcase size={14} className="text-red-500"/> Painel de Indicações
             </div>
             <h1 className="text-3xl font-black text-white italic uppercase">
-               Nível: <span className="text-red-500">{userLevel}</span>
+               INDIQUE E <span className="text-red-500">GANHE</span>
             </h1>
             <p className="text-gray-400 text-sm mt-2 max-w-md">
-               Divulgue seu link exclusivo. Cada venda realizada através dele gera uma comissão fixa de <strong>R$ 10,00</strong> para você.
+               Envie seu link para amigos. A cada compra realizada através dele, você ganha uma comissão fixa de <strong>R$ 10,00</strong>.
             </p>
          </div>
          <div className="bg-white/5 p-3 rounded-xl border border-white/10">
-            <span className="text-xs text-gray-400 block mb-1">Seu Link de Indicação</span>
+            <span className="text-xs text-gray-400 block mb-1">Seu Link de Amigo</span>
             <div className="flex items-center gap-2">
                <code className="text-white font-mono font-bold bg-black/40 px-2 py-1 rounded text-xs md:text-sm truncate max-w-[200px]">
                  {generateAffiliateLink(userCode)}
@@ -121,17 +123,14 @@ const AffiliateDashboard: React.FC = () => {
                  </span>
                  <div className="flex items-end gap-3">
                     <h3 className="text-3xl font-black text-white">{stats.signups}</h3>
-                    <span className="text-sm text-green-400 font-bold mb-1 bg-green-900/30 px-2 rounded">
-                       {stats.conversions}% Conv.
-                    </span>
                  </div>
-                 <p className="text-xs text-gray-400 mt-1">{stats.clicks} Cliques no link</p>
+                 <p className="text-xs text-gray-400 mt-1">Amigos que compraram</p>
               </div>
            </div>
 
            {/* Chart */}
            <div className="bg-black/30 p-6 rounded-3xl border border-white/10">
-              <h3 className="text-white font-bold mb-6">Desempenho Semanal</h3>
+              <h3 className="text-white font-bold mb-6">Desempenho</h3>
               <div className="h-64 w-full">
                  <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={getChartData()}>
@@ -160,7 +159,7 @@ const AffiliateDashboard: React.FC = () => {
       {activeTab === 'transactions' && (
          <div className="animate-fade-in bg-black/30 rounded-3xl border border-white/10 overflow-hidden">
             <div className="p-6 border-b border-white/10 flex justify-between items-center">
-               <h3 className="text-lg font-bold text-white">Histórico de Comissões</h3>
+               <h3 className="text-lg font-bold text-white">Histórico de Indicações</h3>
                <div className="text-xs text-gray-400">Comissão Fixa: <strong>R$ 10,00</strong></div>
             </div>
             <div className="overflow-x-auto">
@@ -168,7 +167,7 @@ const AffiliateDashboard: React.FC = () => {
                   <thead className="bg-white/5 text-gray-400 text-xs uppercase font-bold">
                      <tr>
                         <th className="p-4">Data</th>
-                        <th className="p-4">Cliente</th>
+                        <th className="p-4">Amigo Indicado</th>
                         <th className="p-4 text-right">Comissão</th>
                         <th className="p-4 text-center">Status</th>
                      </tr>

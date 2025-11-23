@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserProfile } from '../types';
+import { getAffiliateStats } from '../services/affiliateService';
 import { Zap, TrendingUp, Calendar, DollarSign, ArrowRight } from 'lucide-react';
 
 interface Props {
@@ -8,6 +9,17 @@ interface Props {
 }
 
 const DashboardHome: React.FC<Props> = ({ user, onChangeView }) => {
+  const [earnings, setEarnings] = useState<number>(0);
+
+  useEffect(() => {
+    if (user.id) {
+      getAffiliateStats(user.id).then(stats => {
+        // Soma total pago + pendente para mostrar ganho geral
+        setEarnings(stats.earnings); 
+      });
+    }
+  }, [user.id]);
+
   return (
     <div className="space-y-8 pb-20">
       {/* Welcome Banner */}
@@ -38,8 +50,8 @@ const DashboardHome: React.FC<Props> = ({ user, onChangeView }) => {
               </div>
               <span className="text-xs text-gray-400 group-hover:text-white transition-colors">Ver Detalhes <ArrowRight size={10} className="inline"/></span>
            </div>
-           <h3 className="text-2xl font-bold text-white">R$ 1.450</h3>
-           <p className="text-xs text-gray-400 mt-1">Ganhos de Afiliado</p>
+           <h3 className="text-2xl font-bold text-white">R$ {earnings.toFixed(2)}</h3>
+           <p className="text-xs text-gray-400 mt-1">Comissões por Indicação</p>
         </div>
 
         <div className="bg-black/40 backdrop-blur-md p-5 rounded-2xl border border-white/10 hover:border-pink-500/50 transition-colors group cursor-pointer" onClick={() => onChangeView('diet')}>
