@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
-import { UserProfile, UserGoal, UserLevel, UserGender } from './types';
+import { UserProfile, UserGoal, UserLevel, UserGender, PlanType } from './types';
 import Login from './components/Login';
 import WorkoutDashboard from './components/WorkoutDashboard';
 import DietGenerator from './components/DietGenerator';
@@ -20,7 +20,8 @@ const INITIAL_USER_TEMPLATE: UserProfile = {
   goal: UserGoal.DEFINITION,
   level: UserLevel.BEGINNER,
   location: 'Academia',
-  budget: 50
+  budget: 50,
+  planType: PlanType.PLANO_TREINO_DIETA // Default fallback
 };
 
 const App: React.FC = () => {
@@ -113,7 +114,9 @@ const App: React.FC = () => {
           goal: data.goal as UserGoal,
           level: data.level as UserLevel,
           location: data.location as any,
-          budget: data.budget
+          budget: data.budget,
+          // Se a coluna plan_type existir no banco, use-a. Senão fallback.
+          planType: (data.plan_type as PlanType) || PlanType.PLANO_TREINO_DIETA
         });
         setView('home');
       } else {
@@ -148,7 +151,8 @@ const App: React.FC = () => {
           goal: user.goal,
           level: user.level,
           location: user.location,
-          budget: user.budget
+          budget: user.budget,
+          plan_type: user.planType // Salva o plano default
         });
 
       if (error) throw error;

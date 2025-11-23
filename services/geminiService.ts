@@ -1,7 +1,8 @@
 
 import { UserProfile, WeeklyWorkoutPlan, DietPlan, Exercise, Meal, UserGoal, UserLevel, UserGender } from "../types";
+import { supabase } from "../lib/supabase";
 
-// --- BANCO DE DADOS ESTÁTICO DE EXERCÍCIOS (EXPANDIDO) ---
+// --- BANCO DE DADOS ESTÁTICO DE EXERCÍCIOS (MANTIDO PARA GERAÇÃO) ---
 interface DBExercise {
   id: string;
   name: string;
@@ -141,13 +142,10 @@ const MEAL_DB: DBMeal[] = [
   { id: 'sn_5', description: 'Queijo e Presunto (Rolls)', type: 'snack', baseCalories: 180, proteinP: 0.5, carbP: 0.05, fatP: 0.45, costLevel: 2, ingredientsTemplate: ['{x} fatias Presunto/Peito Peru', '{y} fatias Queijo'], prep: 'Enrole o queijo no presunto.', tags: ['low_carb'] }
 ];
 
-// --- LÓGICA DE TREINO REFINADA ---
+// --- FUNÇÕES AUXILIARES PARA GERAÇÃO ---
 
 const getTargetExercises = (muscleGroup: string, location: string, level: UserLevel, count: number, excludeIds: Set<string>): Exercise[] => {
-  // Normaliza localização para evitar erros de digitação/casing
   const normLocation = location === 'Ar Livre' ? 'Ar Livre' : (location === 'Casa' ? 'Casa' : 'Academia');
-
-  // 1. Filtra por local e grupo muscular
   let pool = EXERCISE_DB.filter(e => e.locations.includes(normLocation));
   
   if (muscleGroup === 'Cardio') {
@@ -156,24 +154,18 @@ const getTargetExercises = (muscleGroup: string, location: string, level: UserLe
     pool = pool.filter(e => e.group === muscleGroup);
   }
 
-  // 2. Fallback de Robustez: Se não encontrar nada para o local específico, busca QUALQUER exercício do grupo muscular.
-  // Isso impede que a tela fique vazia se o filtro de local for muito restritivo.
   if (pool.length < count) {
-     console.warn(`Fallback ativado para ${muscleGroup} em ${normLocation}`);
      const fallbackPool = EXERCISE_DB.filter(e => e.group === muscleGroup);
      fallbackPool.forEach(e => { 
         if (!pool.find(p => p.id === e.id)) pool.push(e); 
      });
   }
 
-  // 3. Filtra os já usados (apenas se tivermos opções suficientes para não zerar o pool)
   const unusedPool = pool.filter(e => !excludeIds.has(e.id));
   if (unusedPool.length >= count) {
       pool = unusedPool;
   }
-  // Se não tivermos não-usados suficientes, usamos o pool completo (com repetidos) para garantir que retornamos ALGO.
 
-  // 4. Ordenação Inteligente: Compostos Primeiro!
   pool.sort(() => Math.random() - 0.5);
   pool.sort((a, b) => {
       if (a.type === 'Compound' && b.type !== 'Compound') return -1;
@@ -206,20 +198,53 @@ const getTargetExercises = (muscleGroup: string, location: string, level: UserLe
   return selected;
 };
 
+const scaleIngredients = (template: string[], calories: number, baseCalories: number): string[] => {
+    const ratio = calories / Math.max(baseCalories, 100); 
+    return template.map(item => {
+      if (item.includes('{x}')) {
+         const baseVal = item.includes('Ovos') ? 2 : (item.includes('Frango') || item.includes('Carne') || item.includes('Peixe') ? 100 : 50); 
+         const newVal = Math.round(baseVal * ratio);
+         return item.replace('{x}', newVal.toString());
+      }
+      if (item.includes('{y}')) {
+         const baseVal = item.includes('Arroz') || item.includes('Batata') || item.includes('Aveia') ? 100 : 50;
+         const newVal = Math.round(baseVal * ratio);
+         return item.replace('{y}', newVal.toString());
+      }
+      return item;
+    });
+};
+
+// --- LÓGICA PRINCIPAL COM PERSISTÊNCIA ---
+
 export const generateWeeklyWorkout = async (profile: UserProfile): Promise<WeeklyWorkoutPlan | null> => {
+  if (!profile.id) return null;
+
+  // 1. Verificar se já existe um plano ativo no banco
+  const { data: existingPlan } = await supabase
+    .from('workout_plans')
+    .select('plan_data')
+    .eq('user_id', profile.id)
+    .eq('active', true)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
+
+  if (existingPlan) {
+    console.log("Carregando treino existente do Supabase...");
+    return existingPlan.plan_data as WeeklyWorkoutPlan;
+  }
+
+  console.log("Gerando novo treino...");
+  // 2. Gerar novo plano (Lógica original)
   await new Promise(resolve => setTimeout(resolve, 600));
 
-  // Definição da Estrutura de Treino
   let splitStructure: { name: string; focus: string; groups: string[] }[] = [];
-  
-  // Lógica de Gênero: Ajuste sutil de foco para objetivos estéticos padrão
   const isFemaleFocus = profile.gender === UserGender.FEMALE && 
                        (profile.goal === UserGoal.DEFINITION || profile.goal === UserGoal.GAIN_MUSCLE || profile.goal === UserGoal.LOSE_WEIGHT);
   
-  // Iniciante
   if (profile.level === UserLevel.BEGINNER) {
     if (isFemaleFocus) {
-        // Mulheres iniciantes: Foco um pouco maior em membros inferiores/glúteo no Full Body
         splitStructure = [
             { name: 'Treino A - Full Body (Ênfase Perna)', focus: 'Adaptação', groups: ['Pernas', 'Pernas', 'Costas', 'Ombros', 'Abdômen'] },
             { name: 'Descanso', focus: 'Recuperação', groups: [] },
@@ -230,7 +255,6 @@ export const generateWeeklyWorkout = async (profile: UserProfile): Promise<Weekl
             { name: 'Descanso', focus: 'Recuperação', groups: [] }
         ];
     } else {
-        // Padrão / Masculino
         splitStructure = [
             { name: 'Treino A - Full Body', focus: 'Adaptação', groups: ['Pernas', 'Costas', 'Peito', 'Ombros', 'Abdômen'] },
             { name: 'Descanso', focus: 'Recuperação', groups: [] },
@@ -241,9 +265,7 @@ export const generateWeeklyWorkout = async (profile: UserProfile): Promise<Weekl
             { name: 'Descanso', focus: 'Recuperação', groups: [] }
         ];
     }
-  } 
-  // Intermediário/Avançado
-  else {
+  } else {
      if (profile.location === 'Casa') {
         splitStructure = [
             { name: 'Treino A - Empurrar (Push)', focus: 'Peito/Ombro/Tríceps', groups: ['Peito', 'Peito', 'Ombros', 'Ombros', 'Tríceps'] },
@@ -256,7 +278,6 @@ export const generateWeeklyWorkout = async (profile: UserProfile): Promise<Weekl
         ];
      } else {
         if (isFemaleFocus) {
-            // Divisão com ênfase em inferiores (Glute Focus Split)
             splitStructure = [
                 { name: 'Treino A - Glúteos e Posterior', focus: 'Cadeia Posterior', groups: ['Pernas', 'Pernas', 'Pernas', 'Pernas', 'Abdômen'] },
                 { name: 'Treino B - Superiores Completo', focus: 'Tônus Superior', groups: ['Costas', 'Ombros', 'Ombros', 'Peito', 'Tríceps'] },
@@ -267,7 +288,6 @@ export const generateWeeklyWorkout = async (profile: UserProfile): Promise<Weekl
                 { name: 'Descanso', focus: 'Recuperação', groups: [] }
             ];
         } else {
-            // Divisão Clássica (Bro Split / ABCDE)
             splitStructure = [
                 { name: 'Treino A - Peito e Tríceps', focus: 'Força de Empurrar', groups: ['Peito', 'Peito', 'Peito', 'Tríceps', 'Tríceps'] },
                 { name: 'Treino B - Costas e Bíceps', focus: 'Força de Puxar', groups: ['Costas', 'Costas', 'Costas', 'Bíceps', 'Bíceps'] },
@@ -282,7 +302,6 @@ export const generateWeeklyWorkout = async (profile: UserProfile): Promise<Weekl
   }
 
   const usedIds = new Set<string>();
-  
   const split = splitStructure.map(day => {
     if (day.groups.length === 0) return { dayName: day.name, focus: day.focus, exercises: [], duration: '0 min' };
     
@@ -303,87 +322,53 @@ export const generateWeeklyWorkout = async (profile: UserProfile): Promise<Weekl
     };
   });
 
-  return {
+  const generatedPlan: WeeklyWorkoutPlan = {
     title: `Protocolo ${profile.goal}`,
     overview: `Ficha técnica otimizada para ${profile.location} (${profile.gender === UserGender.FEMALE ? 'Foco Específico' : 'Padrão'}). Foco em progressão.`,
     split
   };
-};
 
-export const swapExercise = async (currentExercise: Exercise, userGoal: string): Promise<Exercise | null> => {
-  await new Promise(resolve => setTimeout(resolve, 400));
-  
-  const candidates = EXERCISE_DB.filter(e => e.group === currentExercise.muscleGroup && e.id !== currentExercise.id && e.name !== currentExercise.name);
-  
-  if (candidates.length === 0) return null;
-  
-  const random = candidates[Math.floor(Math.random() * candidates.length)];
-  
-  return {
-    id: random.id,
-    name: random.name,
-    muscleGroup: random.group,
-    sets: currentExercise.sets,
-    reps: currentExercise.reps,
-    restSeconds: currentExercise.restSeconds,
-    suggestedWeight: random.baseWeight,
-    instructions: getInstructions(random.name),
-    tips: getTips(random.group, random.type),
-    gifUrl: random.gifUrl
-  };
-};
+  // 3. Salvar o novo plano no banco e desativar anteriores
+  try {
+      // Desativa anteriores
+      await supabase.from('workout_plans').update({ active: false }).eq('user_id', profile.id);
+      
+      // Insere novo
+      await supabase.from('workout_plans').insert({
+          user_id: profile.id,
+          plan_data: generatedPlan,
+          title: generatedPlan.title,
+          active: true
+      });
+  } catch (e) {
+      console.error("Erro ao persistir treino:", e);
+  }
 
-// --- LÓGICA DE DIETA (MANTIDA E EXPANDIDA NOS DADOS) ---
-const scaleIngredients = (template: string[], calories: number, baseCalories: number): string[] => {
-    const ratio = calories / Math.max(baseCalories, 100); 
-    return template.map(item => {
-      if (item.includes('{x}')) {
-         const baseVal = item.includes('Ovos') ? 2 : (item.includes('Frango') || item.includes('Carne') || item.includes('Peixe') ? 100 : 50); 
-         const newVal = Math.round(baseVal * ratio);
-         return item.replace('{x}', newVal.toString());
-      }
-      if (item.includes('{y}')) {
-         const baseVal = item.includes('Arroz') || item.includes('Batata') || item.includes('Aveia') ? 100 : 50;
-         const newVal = Math.round(baseVal * ratio);
-         return item.replace('{y}', newVal.toString());
-      }
-      return item;
-    });
-};
-
-export const generateAlternativeMeal = async (currentMeal: Meal, dietPlan: DietPlan): Promise<Meal | null> => {
-    await new Promise(resolve => setTimeout(resolve, 400));
-    const candidates = MEAL_DB.filter(m => m.type === currentMeal.type && m.id !== currentMeal.id);
-    if (candidates.length === 0) return null;
-    
-    const random = candidates[Math.floor(Math.random() * candidates.length)];
-    const targetCal = currentMeal.macros.calories;
-    
-    return {
-        id: random.id,
-        name: currentMeal.name,
-        description: random.description,
-        costEstimate: currentMeal.costEstimate, 
-        ingredients: scaleIngredients(random.ingredientsTemplate, targetCal, random.baseCalories),
-        preparation: random.prep,
-        type: random.type,
-        macros: {
-            calories: Math.round(targetCal),
-            protein: Math.round((targetCal * random.proteinP) / 4),
-            carbs: Math.round((targetCal * random.carbP) / 4),
-            fats: Math.round((targetCal * random.fatP) / 9),
-        }
-    };
+  return generatedPlan;
 };
 
 export const generateDiet = async (profile: UserProfile, budget: number, period: 'Diário' | 'Semanal' | 'Mensal'): Promise<DietPlan | null> => {
+  if (!profile.id) return null;
+
+  // 1. Verificar se já existe uma dieta ativa
+  const { data: existingPlan } = await supabase
+    .from('diet_plans')
+    .select('plan_data')
+    .eq('user_id', profile.id)
+    .eq('active', true)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
+
+  if (existingPlan) {
+    console.log("Carregando dieta existente do Supabase...");
+    return existingPlan.plan_data as DietPlan;
+  }
+
+  console.log("Gerando nova dieta...");
   await new Promise(resolve => setTimeout(resolve, 800));
 
-  // Mifflin-St Jeor Equation
-  // Homens: (10 × peso) + (6,25 × altura) - (5 × idade) + 5
-  // Mulheres: (10 × peso) + (6,25 × altura) - (5 × idade) - 161
-  
-  let sParam = 5; // Default Male
+  let sParam = 5; 
   if (profile.gender === UserGender.FEMALE) {
       sParam = -161;
   }
@@ -395,26 +380,20 @@ export const generateDiet = async (profile: UserProfile, budget: number, period:
   
   let tdee = Math.round(bmr * activityFactor);
   
-  // Lógica de Ajuste Calórico baseada nos Novos Objetivos
   const goal = profile.goal;
-  
   if ([UserGoal.LOSE_WEIGHT, UserGoal.DEFINITION, UserGoal.EVENT_PREP].includes(goal)) {
-    tdee -= 400; // Déficit
+    tdee -= 400; 
   } else if ([UserGoal.GAIN_MUSCLE, UserGoal.STRENGTH_GAIN, UserGoal.ATHLETIC_PERFORMANCE].includes(goal)) {
-    tdee += 300; // Superávit
+    tdee += 300; 
   } else if ([UserGoal.DEFINITION].includes(goal)) {
-    tdee -= 200; // Déficit Leve
-  } else {
-    // Manutenção / Recomposição / Saúde / Mobilidade / Pós Lesão
-    // Mantém o TDEE normal (Manutenção)
+    tdee -= 200;
   }
 
-  // Ajuste de Proteína baseado no objetivo
   let proteinMultiplier = 1.8;
   if ([UserGoal.GAIN_MUSCLE, UserGoal.STRENGTH_GAIN, UserGoal.DEFINITION].includes(goal)) {
       proteinMultiplier = 2.2;
   } else if ([UserGoal.LOSE_WEIGHT, UserGoal.RECOMPOSITION].includes(goal)) {
-      proteinMultiplier = 2.0; // Alta proteína na perda de peso ajuda a segurar massa
+      proteinMultiplier = 2.0; 
   }
 
   const proteinG = Math.round(profile.weight * proteinMultiplier);
@@ -424,7 +403,6 @@ export const generateDiet = async (profile: UserProfile, budget: number, period:
   const costLevel = dailyBudget < 20 ? 1 : (dailyBudget < 40 ? 2 : 3);
 
   const filterMeals = (type: string) => {
-      // Tenta achar compatível com preço, se não der, pega qualquer um do tipo
       let valid = MEAL_DB.filter(m => m.type === type && m.costLevel <= costLevel);
       return valid.length > 0 ? valid : MEAL_DB.filter(m => m.type === type);
   };
@@ -434,7 +412,7 @@ export const generateDiet = async (profile: UserProfile, budget: number, period:
       { name: 'Café da Manhã', type: 'breakfast', calShare: 0.25 },
       { name: 'Almoço', type: 'lunch', calShare: 0.35 },
       { name: 'Lanche', type: 'snack', calShare: 0.15 },
-      { name: 'Jantar', type: 'lunch', calShare: 0.25 } // Reutiliza lógica de almoço para jantar
+      { name: 'Jantar', type: 'lunch', calShare: 0.25 } 
   ];
 
   mealStructure.forEach(struct => {
@@ -462,7 +440,7 @@ export const generateDiet = async (profile: UserProfile, budget: number, period:
   const allIngredients = new Set<string>();
   selectedMeals.forEach(m => m.ingredients.forEach(i => allIngredients.add(i)));
 
-  return {
+  const generatedPlan: DietPlan = {
     totalCost: budget,
     period: period,
     meals: selectedMeals,
@@ -472,18 +450,61 @@ export const generateDiet = async (profile: UserProfile, budget: number, period:
     waterTarget: Math.round(profile.weight * 40),
     supplements: [UserGoal.GAIN_MUSCLE, UserGoal.STRENGTH_GAIN].includes(goal) ? ["Creatina", "Whey"] : ["Multivitamínico"]
   };
+
+  // 3. Salvar no banco
+  try {
+      await supabase.from('diet_plans').update({ active: false }).eq('user_id', profile.id);
+      await supabase.from('diet_plans').insert({
+          user_id: profile.id,
+          plan_data: generatedPlan,
+          active: true
+      });
+  } catch (e) {
+      console.error("Erro ao salvar dieta:", e);
+  }
+
+  return generatedPlan;
 };
 
-// MANTER FUNÇÕES AUXILIARES
-export const generateAffiliateCopy = async (type: 'whatsapp' | 'instagram' | 'email'): Promise<string> => {
-  const templates = [
-      "Quer evoluir de verdade? 💪 Baixe o Acer Fitness PRO!",
-      "Treino e Dieta na palma da mão. 🚀 Conheça o Acer Fitness PRO.",
-      "Pare de perder tempo na academia. Tenha um plano real! 🔥"
-  ];
-  return templates[Math.floor(Math.random() * templates.length)];
+// MANTENDO DEMAIS FUNÇÕES INALTERADAS
+export const swapExercise = async (currentExercise: Exercise, userGoal: string): Promise<Exercise | null> => {
+  await new Promise(resolve => setTimeout(resolve, 400));
+  const candidates = EXERCISE_DB.filter(e => e.group === currentExercise.muscleGroup && e.id !== currentExercise.id && e.name !== currentExercise.name);
+  if (candidates.length === 0) return null;
+  const random = candidates[Math.floor(Math.random() * candidates.length)];
+  return {
+    id: random.id,
+    name: random.name,
+    muscleGroup: random.group,
+    sets: currentExercise.sets,
+    reps: currentExercise.reps,
+    restSeconds: currentExercise.restSeconds,
+    suggestedWeight: random.baseWeight,
+    instructions: getInstructions(random.name),
+    tips: getTips(random.group, random.type),
+    gifUrl: random.gifUrl
+  };
 };
 
-export const chatWithTrainer = async (message: string, context: string): Promise<string> => {
-  return "Olá! Sou seu treinador virtual. Siga o plano de treino e dieta rigorosamente para ver resultados. Se tiver dor, pare e descanse. Foque na execução correta!";
+export const generateAlternativeMeal = async (currentMeal: Meal, dietPlan: DietPlan): Promise<Meal | null> => {
+    await new Promise(resolve => setTimeout(resolve, 400));
+    const candidates = MEAL_DB.filter(m => m.type === currentMeal.type && m.id !== currentMeal.id);
+    if (candidates.length === 0) return null;
+    const random = candidates[Math.floor(Math.random() * candidates.length)];
+    const targetCal = currentMeal.macros.calories;
+    return {
+        id: random.id,
+        name: currentMeal.name,
+        description: random.description,
+        costEstimate: currentMeal.costEstimate, 
+        ingredients: scaleIngredients(random.ingredientsTemplate, targetCal, random.baseCalories),
+        preparation: random.prep,
+        type: random.type,
+        macros: {
+            calories: Math.round(targetCal),
+            protein: Math.round((targetCal * random.proteinP) / 4),
+            carbs: Math.round((targetCal * random.carbP) / 4),
+            fats: Math.round((targetCal * random.fatP) / 9),
+        }
+    };
 };

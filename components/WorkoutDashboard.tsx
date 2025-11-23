@@ -64,6 +64,7 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
     const checkActiveSession = async () => {
       if (!user.id) return;
       
+      // Busca sessão ativa (finished_at IS NULL)
       const { data: session } = await supabase
         .from('workout_sessions')
         .select('id, day_name, started_at')
@@ -77,11 +78,13 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
         setActiveSessionId(session.id);
         setIsWorkoutActive(true);
         
+        // Sincroniza dia do plano com a sessão ativa
         if (plan) {
            const dayIdx = plan.split.findIndex(d => d.dayName === session.day_name);
            if (dayIdx !== -1) setActiveDayIndex(dayIdx);
         }
         
+        // Recupera os logs (checks e pesos)
         const { data: logs } = await supabase
           .from('workout_logs')
           .select('*')
@@ -90,12 +93,19 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
         if (logs) {
           const restoredCompleted = new Set<string>();
           const restoredWeights: Record<string, string> = {};
+          
           logs.forEach((log: any) => {
+             // O ID único do check é "NomeExercicio-IndexSerie"
              const id = `${log.exercise_name}-${log.set_number - 1}`;
              restoredCompleted.add(id);
-             if (log.weight) restoredWeights[id] = log.weight.toString();
+             
+             if (log.weight && log.weight > 0) {
+               restoredWeights[id] = log.weight.toString();
+             }
           });
+          
           setCompletedSets(restoredCompleted);
+          // Mescla pesos recuperados com o estado atual
           setLoggedWeights(prev => ({...prev, ...restoredWeights}));
         }
       }
@@ -239,9 +249,12 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
 
   const toggleSetComplete = async (exerciseName: string, muscleGroup: string, setIndex: number, reps: string) => {
     const id = `${exerciseName}-${setIndex}`;
-    const weight = loggedWeights[id] ? parseFloat(loggedWeights[id]) : null;
+    const weight = loggedWeights[id] ? parseFloat(loggedWeights[id]) : 0;
     
-    if (!activeSessionId) return;
+    if (!activeSessionId) {
+        alert("Sessão não encontrada. Tente reiniciar o treino.");
+        return;
+    }
     
     const newCompleted = new Set(completedSets);
     const isCompleting = !newCompleted.has(id);
@@ -255,6 +268,7 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
 
     try {
       if (isCompleting) {
+        // Salvar/Atualizar Check
         await supabase
           .from('workout_logs')
           .upsert({
@@ -262,12 +276,24 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
              exercise_name: exerciseName,
              muscle_group: muscleGroup,
              set_number: setIndex + 1,
-             weight: weight || 0,
+             weight: weight,
              reps_performed: reps
           }, { onConflict: 'session_id, exercise_name, set_number' });
+      } else {
+        // Remover Check
+        await supabase
+            .from('workout_logs')
+            .delete()
+            .match({ 
+                session_id: activeSessionId, 
+                exercise_name: exerciseName, 
+                set_number: setIndex + 1 
+            });
       }
     } catch (err) {
-      console.error("Erro ao salvar log:", err);
+      console.error("Erro ao sincronizar log:", err);
+      // Reverter visualmente se falhar (opcional, mas boa prática)
+      // Aqui simplificamos mantendo a UI otimista
     }
   };
 

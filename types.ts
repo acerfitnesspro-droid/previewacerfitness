@@ -32,6 +32,12 @@ export enum UserGender {
   PREFER_NOT_TO_SAY = 'Prefiro não informar'
 }
 
+export enum PlanType {
+  PLANO_TREINO_DIETA = 'PLANO_TREINO_DIETA',
+  PLANO_SOMENTE_TREINO = 'PLANO_SOMENTE_TREINO',
+  PLANO_SOMENTE_DIETA = 'PLANO_SOMENTE_DIETA'
+}
+
 export interface UserProfile {
   id?: string;
   name: string;
@@ -44,6 +50,7 @@ export interface UserProfile {
   location: 'Casa' | 'Academia' | 'Ar Livre';
   budget?: number;
   affiliateId?: string; // Quem indicou este usuário
+  planType?: PlanType; // Define o acesso aos recursos (Chats)
 }
 
 export interface Exercise {
@@ -102,11 +109,14 @@ export interface DietPlan {
   supplements: string[];
 }
 
+// --- CHAT REAL ---
 export interface ChatMessage {
   id: string;
-  role: 'user' | 'model';
-  text: string;
-  timestamp: Date;
+  userId: string;
+  channel: 'TRAINER' | 'NUTRITIONIST';
+  content: string;
+  isFromUser: boolean;
+  createdAt: string;
 }
 
 // --- SISTEMA DE AFILIADOS ---
@@ -115,12 +125,6 @@ export enum AffiliateLevel {
   MANAGER = 'GERENTE',
   AFFILIATE = 'AFILIADO', // Influencer
   OWNER = 'DONOS' // N/L
-}
-
-export enum PlanType {
-  PLANO_TREINO_DIETA = 'PLANO_TREINO_DIETA',
-  PLANO_SOMENTE_TREINO = 'PLANO_SOMENTE_TREINO',
-  PLANO_SOMENTE_DIETA = 'PLANO_SOMENTE_DIETA'
 }
 
 export interface AffiliateProfile {
