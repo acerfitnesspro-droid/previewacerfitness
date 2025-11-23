@@ -43,6 +43,7 @@ export interface UserProfile {
   level: UserLevel;
   location: 'Casa' | 'Academia' | 'Ar Livre';
   budget?: number;
+  affiliateId?: string; // Quem indicou este usuário
 }
 
 export interface Exercise {
@@ -72,7 +73,6 @@ export interface WeeklyWorkoutPlan {
   split: WorkoutDay[];
 }
 
-// Atualizado para macros numéricos para gráficos
 export interface Macros {
   protein: number;
   carbs: number;
@@ -82,8 +82,8 @@ export interface Macros {
 
 export interface Meal {
   id: string;
-  name: string; // "Café da Manhã", etc
-  description: string; // Nome do prato ex: "Omelete com Aveia"
+  name: string; 
+  description: string; 
   costEstimate: number;
   macros: Macros;
   ingredients: string[];
@@ -98,7 +98,7 @@ export interface DietPlan {
   shoppingList: string[];
   savingsTips: string[];
   dailyTargets: Macros;
-  waterTarget: number; // em ml
+  waterTarget: number; 
   supplements: string[];
 }
 
@@ -109,11 +109,47 @@ export interface ChatMessage {
   timestamp: Date;
 }
 
+// --- SISTEMA DE AFILIADOS ---
+
+export enum AffiliateLevel {
+  MANAGER = 'GERENTE',
+  AFFILIATE = 'AFILIADO', // Influencer
+  OWNER = 'DONOS' // N/L
+}
+
+export enum PlanType {
+  PLANO_TREINO_DIETA = 'PLANO_TREINO_DIETA',
+  PLANO_SOMENTE_TREINO = 'PLANO_SOMENTE_TREINO',
+  PLANO_SOMENTE_DIETA = 'PLANO_SOMENTE_DIETA'
+}
+
+export interface AffiliateProfile {
+  id: string;
+  userId: string;
+  code: string; // Código de indicação ex: USER_8821
+  level: AffiliateLevel;
+  balance: number;
+  totalEarnings: number;
+  active: boolean;
+}
+
+export interface CommissionTransaction {
+  id: string;
+  affiliateId: string;
+  orderId: string;
+  buyerName: string; // Apenas para display
+  planType: PlanType;
+  amount: number;
+  status: 'PENDING' | 'PAID' | 'CANCELLED';
+  createdAt: Date;
+  paidAt?: Date;
+}
+
 export interface AffiliateStats {
   clicks: number;
-  signups: number;
-  conversions: number;
-  earnings: number;
-  pendingPayout: number;
+  signups: number; // Vendas
+  conversions: number; // Taxa %
+  earnings: number; // Total ganho
+  pendingPayout: number; // A receber
   rank: number;
 }
