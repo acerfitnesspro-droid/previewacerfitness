@@ -480,8 +480,9 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
                               <button onClick={() => handleSwapExercise(exercise, activeDayIndex, exIndex)} className="p-2.5 bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 rounded-xl transition-all" title="Trocar Exercício">
                                  <RefreshCcw size={18} className={swappingExerciseId === (exercise.id || String(exIndex)) ? "animate-spin" : ""} />
                               </button>
-                              <button onClick={() => setSelectedExercise(exercise)} className="p-2.5 bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 rounded-xl transition-all" title="Ver Detalhes">
+                              <button onClick={() => setSelectedExercise(exercise)} className="px-3 py-2.5 bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 rounded-xl transition-all flex items-center gap-2" title="Veja como executar">
                                  <Info size={18} />
+                                 <span className="text-xs font-bold">Veja como executar</span>
                               </button>
                            </div>
                         </div>
