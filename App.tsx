@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
-import { UserProfile, UserGoal, UserLevel } from './types';
+import { UserProfile, UserGoal, UserLevel, UserGender } from './types';
 import Login from './components/Login';
 import WorkoutDashboard from './components/WorkoutDashboard';
 import DietGenerator from './components/DietGenerator';
@@ -9,13 +9,14 @@ import ChatAssistant from './components/ChatAssistant';
 import AffiliateDashboard from './components/AffiliateDashboard';
 import DashboardHome from './components/DashboardHome';
 import SystemConfig from './components/SystemConfig';
-import { Dumbbell, Utensils, MessageSquare, TrendingUp, Home, Menu, X, Loader2, LogOut } from 'lucide-react';
+import { Dumbbell, Utensils, MessageSquare, TrendingUp, Home, Menu, X, Loader2, LogOut, User, UserCheck } from 'lucide-react';
 
 const INITIAL_USER_TEMPLATE: UserProfile = {
   name: '',
   age: 25,
   weight: 70,
   height: 175,
+  gender: UserGender.MALE,
   goal: UserGoal.DEFINITION,
   level: UserLevel.BEGINNER,
   location: 'Academia',
@@ -41,7 +42,17 @@ const App: React.FC = () => {
     }
 
     // 2. Verificar sessão ativa
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error("Error fetching session:", error);
+        // Se a chave for inválida, o getSession pode falhar
+        if (error.message?.includes('fetch') || error.message?.includes('apikey')) {
+           setNeedsConfig(true);
+           setLoadingAuth(false);
+           return;
+        }
+      }
+      
       setSession(session);
       if (session) fetchProfile(session.user.id);
       else setLoadingAuth(false);
@@ -72,16 +83,31 @@ const App: React.FC = () => {
         .single();
 
       if (error) {
-        // Se erro de conexão, pode ser config inválida
-        if (error.message && (error.message.includes('fetch') || error.message.includes('connection'))) {
-            console.error("Erro crítico de conexão:", error);
+        console.error("Erro ao buscar perfil:", error);
+        
+        // Verificação robusta de erros de conexão
+        const errorMsg = error.message?.toLowerCase() || '';
+        const isConnectionError = errorMsg.includes('fetch') || 
+                                  errorMsg.includes('connection') || 
+                                  errorMsg.includes('network') ||
+                                  errorMsg.includes('apikey');
+
+        if (isConnectionError) {
+            setNeedsConfig(true);
+            return;
+        }
+        
+        // Se não encontrou perfil (PGRST116), vai pro onboarding. Se for outro erro, loga.
+        if (error.code !== 'PGRST116') {
+             console.warn("Erro desconhecido ao carregar perfil, redirecionando para onboarding.");
         }
         setView('onboarding');
       } else if (data) {
         setUser({
-          id: userId, // Ensure ID is present
+          id: userId,
           name: data.name,
           age: data.age || 25,
+          gender: data.gender || UserGender.MALE,
           weight: data.weight,
           height: data.height,
           goal: data.goal as UserGoal,
@@ -93,9 +119,13 @@ const App: React.FC = () => {
       } else {
         setView('onboarding');
       }
-    } catch (error) {
-      console.error('Erro ao buscar perfil:', error);
-      setView('onboarding');
+    } catch (error: any) {
+      console.error('Exceção ao buscar perfil:', error);
+      if (error.message?.includes('fetch')) {
+          setNeedsConfig(true);
+      } else {
+          setView('onboarding');
+      }
     } finally {
       setLoadingAuth(false);
     }
@@ -112,6 +142,7 @@ const App: React.FC = () => {
           id: session.user.id,
           name: user.name,
           age: user.age,
+          gender: user.gender,
           weight: user.weight,
           height: user.height,
           goal: user.goal,
@@ -172,75 +203,112 @@ const App: React.FC = () => {
   if (view === 'onboarding') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#500000] via-[#D00000] to-[#FFC0CB] flex items-center justify-center p-6 font-inter">
-        <div className="max-w-md w-full bg-black/30 backdrop-blur-xl p-8 rounded-3xl border border-white/10 shadow-2xl">
-          <h1 className="text-4xl font-black text-white mb-2 tracking-tighter">ACER FITNESS <span className="text-red-500">PRO</span></h1>
-          <p className="text-pink-200 mb-8">Vamos configurar seu perfil pessoal.</p>
+        <div className="max-w-2xl w-full bg-black/30 backdrop-blur-xl p-8 rounded-3xl border border-white/10 shadow-2xl">
+          <h1 className="text-4xl font-black text-white mb-2 tracking-tighter text-center">ACER FITNESS <span className="text-red-500">PRO</span></h1>
+          <p className="text-pink-200 mb-8 text-center">Vamos configurar seu perfil pessoal.</p>
           
           {formStep === 0 && (
-            <div className="space-y-4 animate-fade-in">
-               <h2 className="text-xl text-white font-bold">Qual seu nome?</h2>
+            <div className="space-y-5 animate-fade-in max-w-md mx-auto">
+               <h2 className="text-xl text-white font-bold">Dados Pessoais</h2>
+               
                <input 
                  type="text" 
                  value={user.name}
                  onChange={e => setUser({...user, name: e.target.value})}
-                 className="w-full bg-white/10 border border-white/20 rounded-xl p-4 text-white placeholder-white/50 focus:outline-none focus:border-red-500"
-                 placeholder="Seu nome"
+                 className="w-full bg-white/10 border border-white/20 rounded-xl p-4 text-white placeholder-white/50 focus:outline-none focus:border-red-500 transition-colors"
+                 placeholder="Seu nome completo"
                />
-               <div className="grid grid-cols-2 gap-4">
+
+               <div>
+                 <label className="text-xs text-pink-200 ml-1 uppercase font-bold tracking-wider mb-2 block">Gênero Biológico</label>
+                 <div className="grid grid-cols-2 gap-3">
+                    {[
+                        { val: UserGender.MALE, label: 'Masculino', icon: User },
+                        { val: UserGender.FEMALE, label: 'Feminino', icon: UserCheck },
+                        { val: UserGender.OTHER, label: 'Outro', icon: User },
+                        { val: UserGender.PREFER_NOT_TO_SAY, label: 'Prefiro não', icon: User }
+                    ].map((opt) => (
+                        <button
+                            key={opt.val}
+                            onClick={() => setUser({...user, gender: opt.val})}
+                            className={`flex items-center gap-2 p-3 rounded-xl text-sm font-bold border transition-all group ${
+                                user.gender === opt.val 
+                                    ? 'bg-red-600 border-red-500 text-white shadow-lg shadow-red-900/30' 
+                                    : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white'
+                            }`}
+                        >
+                            <opt.icon size={16} className={user.gender === opt.val ? "text-white" : "text-gray-500 group-hover:text-white"} />
+                            <span className="truncate">{opt.label}</span>
+                        </button>
+                    ))}
+                 </div>
+               </div>
+
+               <div className="grid grid-cols-3 gap-4">
+                 <div className="space-y-1">
+                    <label className="text-xs text-pink-200 ml-1">Idade</label>
+                    <input 
+                        type="number" 
+                        placeholder="Anos"
+                        value={user.age}
+                        onChange={e => setUser({...user, age: Number(e.target.value)})}
+                        className="w-full bg-white/10 border border-white/20 rounded-xl p-4 text-white focus:border-red-500 focus:outline-none"
+                    />
+                 </div>
                  <div className="space-y-1">
                     <label className="text-xs text-pink-200 ml-1">Peso (kg)</label>
                     <input 
                         type="number" 
-                        placeholder="Ex: 70"
+                        placeholder="kg"
                         value={user.weight}
                         onChange={e => setUser({...user, weight: Number(e.target.value)})}
-                        className="w-full bg-white/10 border border-white/20 rounded-xl p-4 text-white"
+                        className="w-full bg-white/10 border border-white/20 rounded-xl p-4 text-white focus:border-red-500 focus:outline-none"
                     />
                  </div>
                  <div className="space-y-1">
                     <label className="text-xs text-pink-200 ml-1">Altura (cm)</label>
                     <input 
                         type="number" 
-                        placeholder="Ex: 175"
+                        placeholder="cm"
                         value={user.height}
                         onChange={e => setUser({...user, height: Number(e.target.value)})}
-                        className="w-full bg-white/10 border border-white/20 rounded-xl p-4 text-white"
+                        className="w-full bg-white/10 border border-white/20 rounded-xl p-4 text-white focus:border-red-500 focus:outline-none"
                     />
                  </div>
                </div>
-               <button onClick={() => setFormStep(1)} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl mt-4 transition-transform active:scale-95">
-                 Próximo
+               <button onClick={() => setFormStep(1)} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl mt-4 transition-transform active:scale-95 shadow-lg shadow-red-900/50">
+                 Continuar
                </button>
             </div>
           )}
 
           {formStep === 1 && (
              <div className="space-y-4 animate-fade-in">
-               <h2 className="text-xl text-white font-bold">Qual seu principal objetivo?</h2>
-               <div className="grid grid-cols-1 gap-2">
+               <h2 className="text-xl text-white font-bold text-center mb-4">Qual seu principal objetivo?</h2>
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto pr-2 scrollbar-thin">
                  {Object.values(UserGoal).map((g) => (
                    <button 
                      key={g}
                      onClick={() => setUser({...user, goal: g})}
                      className={`p-4 rounded-xl text-left border transition-all ${
                        user.goal === g 
-                        ? 'bg-red-600 border-red-500 text-white' 
-                        : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
+                        ? 'bg-red-600 border-red-500 text-white shadow-lg' 
+                        : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10 hover:text-white'
                      }`}
                    >
-                     {g}
+                     <span className="font-bold text-sm">{g}</span>
                    </button>
                  ))}
                </div>
-               <div className="flex gap-2 mt-4">
-                 <button onClick={() => setFormStep(0)} className="flex-1 bg-transparent border border-white/20 text-white font-bold py-4 rounded-xl">Voltar</button>
+               <div className="flex gap-2 mt-4 max-w-md mx-auto">
+                 <button onClick={() => setFormStep(0)} className="flex-1 bg-transparent border border-white/20 text-white font-bold py-4 rounded-xl hover:bg-white/5">Voltar</button>
                  <button onClick={() => setFormStep(2)} className="flex-[2] bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl">Próximo</button>
                </div>
              </div>
           )}
 
           {formStep === 2 && (
-             <div className="space-y-4 animate-fade-in">
+             <div className="space-y-4 animate-fade-in max-w-md mx-auto">
                <h2 className="text-xl text-white font-bold">Onde você vai treinar?</h2>
                <div className="grid grid-cols-3 gap-2">
                  {['Casa', 'Academia', 'Ar Livre'].map((loc) => (
@@ -282,6 +350,10 @@ const App: React.FC = () => {
                >
                  {isSavingProfile ? <Loader2 className="animate-spin" /> : 'Salvar e Iniciar'}
                </button>
+               
+               <div className="flex justify-center mt-2">
+                 <button onClick={() => setFormStep(1)} className="text-gray-400 text-sm hover:text-white">Voltar</button>
+               </div>
              </div>
           )}
           
@@ -339,7 +411,7 @@ const App: React.FC = () => {
             </div>
             <div>
               <p className="text-white font-bold text-sm truncate max-w-[120px]">{user.name || 'Usuário'}</p>
-              <p className="text-pink-200 text-xs">{user.goal}</p>
+              <p className="text-pink-200 text-xs truncate max-w-[120px]">{user.goal}</p>
             </div>
           </div>
           <button onClick={handleLogout} className="w-full text-center text-xs text-gray-500 hover:text-white transition-colors flex items-center justify-center gap-2">

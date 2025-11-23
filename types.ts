@@ -1,9 +1,22 @@
 
 export enum UserGoal {
+  // Estéticos / Perda de Peso
   LOSE_WEIGHT = 'Emagrecer',
-  GAIN_MUSCLE = 'Hipertrofia',
   DEFINITION = 'Definição Extrema',
-  CONDITIONING = 'Condicionamento'
+  EVENT_PREP = 'Preparação para Eventos',
+  
+  // Ganho de Massa / Força
+  GAIN_MUSCLE = 'Hipertrofia',
+  STRENGTH_GAIN = 'Ganho de Força',
+  ATHLETIC_PERFORMANCE = 'Performance Atlética',
+  
+  // Manutenção / Saúde / Funcional
+  RECOMPOSITION = 'Recomposição Corporal',
+  CONDITIONING = 'Condicionamento',
+  MOBILITY = 'Mobilidade & Funcionalidade',
+  GENERAL_HEALTH = 'Saúde & Bem-Estar',
+  POST_INJURY = 'Pós-Lesão / Reabilitação',
+  MAINTENANCE = 'Manutenção Corporal'
 }
 
 export enum UserLevel {
@@ -12,10 +25,18 @@ export enum UserLevel {
   ADVANCED = 'Avançado'
 }
 
+export enum UserGender {
+  MALE = 'Masculino',
+  FEMALE = 'Feminino',
+  OTHER = 'Outro / Personalizado',
+  PREFER_NOT_TO_SAY = 'Prefiro não informar'
+}
+
 export interface UserProfile {
   id?: string;
   name: string;
   age: number;
+  gender: UserGender;
   weight: number;
   height: number;
   goal: UserGoal;

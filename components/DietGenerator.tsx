@@ -1,40 +1,71 @@
 
-import React, { useState } from 'react';
-import { UserProfile, DietPlan, Meal } from '../types';
+import React, { useState, useEffect } from 'react';
+import { UserProfile, DietPlan, Meal, UserGoal } from '../types';
 import { generateDiet, generateAlternativeMeal } from '../services/geminiService';
 import { 
   DollarSign, ShoppingCart, Flame, Utensils, TrendingDown, 
-  PieChart, Droplets, Apple, Calculator, ChevronRight, RefreshCcw, CheckSquare, Square, Plus, Minus 
+  PieChart, Droplets, Apple, Calculator, ChevronRight, RefreshCcw, 
+  CheckSquare, Square, Plus, Minus, Settings, Calendar, 
+  Leaf, Wheat, Milk, Scale, ChefHat, ArrowRight, Download, X, Heart
 } from 'lucide-react';
-import { PieChart as RePie, Pie, Cell, ResponsiveContainer, Tooltip as ReTooltip } from 'recharts';
+import { PieChart as RePie, Pie, Cell, ResponsiveContainer } from 'recharts';
 
 interface Props {
   user: UserProfile;
 }
 
+// --- TIPOS VISUAIS INTERNOS ---
+type ViewState = 'config' | 'dashboard';
+type DashboardTab = 'daily' | 'weekly' | 'shopping';
+
 const DietGenerator: React.FC<Props> = ({ user }) => {
-  const [budget, setBudget] = useState<number>(user.budget || 50);
-  const [period, setPeriod] = useState<'Diário' | 'Semanal' | 'Mensal'>('Semanal');
+  // --- STATES ---
+  const [viewState, setViewState] = useState<ViewState>('config');
+  const [activeTab, setActiveTab] = useState<DashboardTab>('daily');
   const [plan, setPlan] = useState<DietPlan | null>(null);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'meals' | 'hydration' | 'shopping'>('overview');
+  const [loadingStep, setLoadingStep] = useState(0);
+
+  // Configuration States
+  const [budget, setBudget] = useState<number>(user.budget || 50);
+  const [restrictions, setRestrictions] = useState<Set<string>>(new Set());
+  const [goalType, setGoalType] = useState<string>(user.goal);
+  const [mealsPerDay, setMealsPerDay] = useState(4);
+  const [marketType, setMarketType] = useState<'supermarket' | 'local' | 'organic'>('supermarket');
   
-  // Interactive States
+  // Interaction States
   const [waterIntake, setWaterIntake] = useState(0);
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
+  const [expandedMeal, setExpandedMeal] = useState<string | null>(null);
   const [swappingMealId, setSwappingMealId] = useState<string | null>(null);
 
+  // --- HANDLERS ---
+
   const handleGenerate = async () => {
+    setViewState('dashboard'); // Troca view imediatamente para mostrar loading
     setLoading(true);
-    const result = await generateDiet(user, budget, period);
+    
+    // Simulação de Loading Steps para UX Premium
+    const steps = [
+      "Calculando Taxa Metabólica Basal...",
+      "Analisando Restrições Alimentares...",
+      "Otimizando Orçamento no Mercado...",
+      "Montando Cardápio Personalizado..."
+    ];
+
+    for (let i = 0; i < steps.length; i++) {
+        setLoadingStep(i);
+        await new Promise(resolve => setTimeout(resolve, 800));
+    }
+
+    const result = await generateDiet({ ...user, goal: goalType as UserGoal }, budget, 'Semanal');
     setPlan(result);
     setLoading(false);
     setWaterIntake(0);
-    setCheckedItems(new Set());
-    setActiveTab('overview');
   };
 
-  const handleSwapMeal = async (meal: Meal, index: number) => {
+  const handleSwapMeal = async (meal: Meal, index: number, e: React.MouseEvent) => {
+    e.stopPropagation();
     if (!plan) return;
     setSwappingMealId(meal.id);
     const newMeal = await generateAlternativeMeal(meal, plan);
@@ -43,9 +74,16 @@ const DietGenerator: React.FC<Props> = ({ user }) => {
         newMeals[index] = newMeal;
         setPlan({ ...plan, meals: newMeals });
     } else {
-        alert("Sem alternativas para esta refeição no momento.");
+        alert("Sem alternativas disponíveis no momento para esta faixa de preço.");
     }
     setSwappingMealId(null);
+  };
+
+  const toggleRestriction = (res: string) => {
+    const newSet = new Set(restrictions);
+    if (newSet.has(res)) newSet.delete(res);
+    else newSet.add(res);
+    setRestrictions(newSet);
   };
 
   const toggleItem = (item: string) => {
@@ -55,308 +93,489 @@ const DietGenerator: React.FC<Props> = ({ user }) => {
     setCheckedItems(newSet);
   };
 
-  const addWater = () => setWaterIntake(prev => Math.min(prev + 250, plan?.waterTarget || 3000));
-  const removeWater = () => setWaterIntake(prev => Math.max(prev - 250, 0));
+  const getProgressColor = (current: number, target: number) => {
+      const pct = (current / target) * 100;
+      if (pct > 110) return "bg-red-500"; // Passou muito
+      if (pct > 90) return "bg-green-500"; // Ideal
+      return "bg-pink-500"; // Em progresso
+  };
+
+  // --- RENDERERS ---
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh] text-white animate-pulse">
-        <Utensils className="w-16 h-16 mb-4 text-pink-400" />
-        <h2 className="text-2xl font-bold">Nutricionista IA Trabalhando...</h2>
-        <p className="text-sm text-pink-200 mt-2">Calculando TDEE, Macros e Preços</p>
+      <div className="flex flex-col items-center justify-center h-[70vh] text-white">
+         <div className="relative w-24 h-24 mb-8">
+            <div className="absolute inset-0 border-4 border-white/10 rounded-full"></div>
+            <div className="absolute inset-0 border-4 border-t-red-500 border-r-pink-500 border-b-transparent border-l-transparent rounded-full animate-spin"></div>
+            <ChefHat className="absolute inset-0 m-auto text-white/80" size={32} />
+         </div>
+         <h2 className="text-3xl font-black italic tracking-tighter mb-2">CRIANDO DIETA</h2>
+         <p className="text-pink-200 animate-pulse text-sm uppercase tracking-widest">
+            {["Calculando TMB...", "Verificando Macros...", "Ajustando Preços...", "Finalizando..."][loadingStep]}
+         </p>
       </div>
     );
   }
 
-  if (!plan) {
+  // --- CONFIGURATION WIZARD (STEP 1) ---
+  if (viewState === 'config' || !plan) {
     return (
-      <div className="flex flex-col h-full max-w-md mx-auto justify-center text-white py-10">
-        <div className="bg-gradient-to-br from-black to-[#1a0505] p-8 rounded-3xl border border-red-500/30 backdrop-blur-lg shadow-2xl">
-          <div className="text-center mb-8">
-            <Apple className="w-12 h-12 text-red-500 mx-auto mb-2" />
-            <h2 className="text-2xl font-bold">Planejamento Nutricional</h2>
-            <p className="text-gray-400 text-sm">Personalizado para {user.goal}</p>
-          </div>
-          
-          <div className="mb-6">
-            <label className="block text-pink-200 text-xs font-bold uppercase mb-2">Orçamento (R$)</label>
-            <div className="relative">
-              <DollarSign className="absolute left-3 top-3 text-red-400" size={20} />
-              <input 
-                type="number" 
-                value={budget}
-                onChange={(e) => setBudget(Number(e.target.value))}
-                className="w-full bg-white/5 border border-white/10 text-white pl-10 p-3 rounded-xl focus:outline-none focus:border-red-400 font-bold text-lg"
-              />
-            </div>
-          </div>
+      <div className="pb-20 animate-fade-in">
+        <div className="text-center mb-10">
+           <h1 className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-pink-200 tracking-tighter uppercase italic">
+              Nutrição <span className="text-red-500">Inteligente</span>
+           </h1>
+           <p className="text-gray-400 mt-2 max-w-lg mx-auto">
+              Configure suas preferências e deixe nossa IA criar o protocolo nutricional perfeito para seu bolso e objetivo.
+           </p>
+        </div>
 
-          <div className="mb-8">
-            <label className="block text-pink-200 text-xs font-bold uppercase mb-2">Período de Compras</label>
-            <div className="grid grid-cols-3 gap-2">
-              {['Diário', 'Semanal', 'Mensal'].map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setPeriod(p as any)}
-                  className={`p-3 rounded-xl text-xs font-bold transition-all border ${
-                    period === p 
-                        ? 'bg-red-600 text-white border-red-500' 
-                        : 'bg-white/5 text-gray-400 border-white/5 hover:bg-white/10'
-                  }`}
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+           {/* Card 1: Objetivo & Perfil */}
+           <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/10 p-8 rounded-[32px] shadow-2xl">
+              <div className="flex items-center gap-3 mb-6">
+                 <div className="p-3 bg-red-600 rounded-2xl text-white shadow-lg shadow-red-900/50">
+                    <Scale size={24} />
+                 </div>
+                 <h3 className="text-2xl font-bold text-white">Objetivo Principal</h3>
+              </div>
 
-          <button 
-            onClick={handleGenerate}
-            className="w-full bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white font-bold py-4 rounded-xl shadow-lg transform transition hover:scale-[1.02] flex items-center justify-center gap-2"
-          >
-            <Calculator size={20} /> Gerar Dieta Completa
-          </button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-8 max-h-60 overflow-y-auto pr-2 scrollbar-thin">
+                 {Object.values(UserGoal).map((g) => (
+                    <button
+                       key={g}
+                       onClick={() => setGoalType(g)}
+                       className={`w-full p-3 rounded-xl text-left border transition-all flex justify-between items-center group ${
+                          goalType === g 
+                            ? 'bg-gradient-to-r from-red-600 to-pink-600 border-transparent text-white shadow-lg' 
+                            : 'bg-black/20 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white'
+                       }`}
+                    >
+                       <span className="font-bold text-xs">{g}</span>
+                       {goalType === g && <CheckSquare size={16} />}
+                    </button>
+                 ))}
+              </div>
+
+              <div className="mb-4">
+                 <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 block">Restrições Alimentares</label>
+                 <div className="flex flex-wrap gap-2">
+                    {[
+                        {id: 'lactose', label: 'Sem Lactose', icon: Milk},
+                        {id: 'gluten', label: 'Sem Glúten', icon: Wheat},
+                        {id: 'vegan', label: 'Vegano', icon: Leaf},
+                        {id: 'lowcarb', label: 'Low Carb', icon: CheckSquare}
+                    ].map((res) => {
+                        const active = restrictions.has(res.id);
+                        return (
+                            <button 
+                               key={res.id}
+                               onClick={() => toggleRestriction(res.id)}
+                               className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold border transition-all ${
+                                   active 
+                                     ? 'bg-white text-red-900 border-white' 
+                                     : 'bg-transparent text-gray-500 border-white/10 hover:border-white/30'
+                               }`}
+                            >
+                                <res.icon size={14} /> {res.label}
+                            </button>
+                        )
+                    })}
+                 </div>
+              </div>
+           </div>
+
+           {/* Card 2: Logística & Orçamento */}
+           <div className="bg-gradient-to-br from-[#2b0f0f] to-[#1a0505] backdrop-blur-xl border border-red-900/30 p-8 rounded-[32px] shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-red-600/10 blur-[80px] rounded-full pointer-events-none"></div>
+              
+              <div className="flex items-center gap-3 mb-6 relative z-10">
+                 <div className="p-3 bg-pink-600 rounded-2xl text-white shadow-lg shadow-pink-900/50">
+                    <DollarSign size={24} />
+                 </div>
+                 <h3 className="text-2xl font-bold text-white">Planejamento</h3>
+              </div>
+
+              <div className="space-y-8 relative z-10">
+                 <div>
+                    <label className="flex justify-between text-sm font-bold text-white mb-4">
+                        <span>Orçamento Diário</span>
+                        <span className="text-green-400">R$ {budget},00</span>
+                    </label>
+                    <input 
+                       type="range" 
+                       min="20" 
+                       max="200" 
+                       step="5"
+                       value={budget}
+                       onChange={(e) => setBudget(Number(e.target.value))}
+                       className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-red-500 hover:accent-pink-500 transition-all"
+                    />
+                    <div className="flex justify-between text-xs text-gray-500 mt-2">
+                        <span>Econômico</span>
+                        <span>Premium</span>
+                    </div>
+                 </div>
+
+                 <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label className="text-xs font-bold text-gray-400 uppercase mb-2 block">Refeições/Dia</label>
+                        <div className="flex items-center gap-3 bg-black/40 p-2 rounded-xl border border-white/10">
+                            <button onClick={() => setMealsPerDay(Math.max(3, mealsPerDay - 1))} className="p-2 hover:text-white text-gray-400"><Minus size={16}/></button>
+                            <span className="flex-1 text-center font-bold text-white text-lg">{mealsPerDay}</span>
+                            <button onClick={() => setMealsPerDay(Math.min(6, mealsPerDay + 1))} className="p-2 hover:text-white text-gray-400"><Plus size={16}/></button>
+                        </div>
+                    </div>
+                    <div>
+                        <label className="text-xs font-bold text-gray-400 uppercase mb-2 block">Onde Compra?</label>
+                        <select 
+                           value={marketType}
+                           onChange={(e) => setMarketType(e.target.value as any)}
+                           className="w-full bg-black/40 border border-white/10 text-white rounded-xl p-3 text-sm focus:outline-none focus:border-red-500 appearance-none font-bold"
+                        >
+                           <option value="supermarket">Supermercado</option>
+                           <option value="local">Feira Local</option>
+                           <option value="organic">Empório Verde</option>
+                        </select>
+                    </div>
+                 </div>
+              </div>
+
+              <div className="mt-10 relative z-10">
+                 <button 
+                    onClick={handleGenerate}
+                    className="w-full bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-500 hover:to-pink-500 text-white font-black text-lg py-5 rounded-2xl shadow-xl shadow-red-900/40 transform transition hover:scale-[1.02] flex items-center justify-center gap-3"
+                 >
+                    <ChefHat size={24} /> GERAR DIETA COMPLETA
+                 </button>
+              </div>
+           </div>
         </div>
       </div>
     );
   }
 
+  // --- DASHBOARD (STEP 2) ---
+  
   const macroData = [
-    { name: 'Proteína', value: plan.dailyTargets.protein, color: '#ef4444' }, // Red
-    { name: 'Carbo', value: plan.dailyTargets.carbs, color: '#3b82f6' }, // Blue
-    { name: 'Gordura', value: plan.dailyTargets.fats, color: '#eab308' }, // Yellow
+    { name: 'Prot', value: plan.dailyTargets.protein, color: '#ef4444' },
+    { name: 'Carb', value: plan.dailyTargets.carbs, color: '#3b82f6' },
+    { name: 'Gord', value: plan.dailyTargets.fats, color: '#eab308' },
   ];
 
   return (
-    <div className="space-y-6 pb-24">
-      {/* Header Compacto */}
-      <div className="bg-gradient-to-r from-[#1a0505] to-black p-6 rounded-2xl border-b border-red-900/30 flex justify-between items-end">
-         <div>
-            <p className="text-gray-400 text-xs uppercase tracking-wider">Meta Diária</p>
-            <h2 className="text-3xl font-black text-white flex items-center gap-2">
-               {plan.dailyTargets.calories} <span className="text-sm font-normal text-gray-500">kcal</span>
-            </h2>
-         </div>
-         <div className="text-right">
-            <p className="text-gray-400 text-xs uppercase">Custo {plan.period}</p>
-            <p className="text-xl font-bold text-green-400">R$ {plan.totalCost.toFixed(0)}</p>
-         </div>
-      </div>
+    <div className="space-y-8 pb-24 animate-fade-in">
+       {/* HEADER: Resumo Nutricional Inteligente */}
+       <div className="relative bg-[#1a0505] rounded-[32px] p-6 md:p-8 border border-red-900/30 overflow-hidden shadow-2xl">
+          {/* Background Decor */}
+          <div className="absolute top-0 right-0 w-96 h-96 bg-red-600/10 blur-[100px] rounded-full pointer-events-none"></div>
+          
+          <div className="relative z-10 flex flex-col md:flex-row gap-8 items-center">
+             
+             {/* Avatar e Motivação */}
+             <div className="flex items-center gap-4 flex-1">
+                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-red-500 to-pink-600 p-1 shadow-lg shadow-red-500/30">
+                   <div className="w-full h-full rounded-full bg-black overflow-hidden flex items-center justify-center">
+                      <span className="text-2xl font-black text-white">{user.name.charAt(0)}</span>
+                   </div>
+                </div>
+                <div>
+                   <h2 className="text-white font-bold text-lg">Olá, {user.name}</h2>
+                   <p className="text-pink-200/80 italic text-sm">"A disciplina é a ponte entre metas e realizações."</p>
+                   <div className="flex gap-2 mt-2">
+                      <span className="text-[10px] font-bold bg-white/10 text-white px-2 py-1 rounded border border-white/5">{goalType}</span>
+                      <span className="text-[10px] font-bold bg-green-900/30 text-green-400 px-2 py-1 rounded border border-green-500/20">R$ {plan.totalCost.toFixed(0)}/{plan.period}</span>
+                   </div>
+                </div>
+             </div>
 
-      {/* Navigation Tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
-         {[
-             { id: 'overview', icon: PieChart, label: 'Visão Geral' },
-             { id: 'meals', icon: Utensils, label: 'Refeições' },
-             { id: 'hydration', icon: Droplets, label: 'Hidratação' },
-             { id: 'shopping', icon: ShoppingCart, label: 'Lista' }
-         ].map(tab => (
-             <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${
-                    activeTab === tab.id 
-                        ? 'bg-white text-red-900' 
-                        : 'bg-white/5 text-gray-400 hover:text-white'
-                }`}
-             >
-                <tab.icon size={16} /> {tab.label}
-             </button>
-         ))}
-      </div>
+             {/* Calories & Macros Bars */}
+             <div className="flex-1 w-full md:w-auto bg-black/30 p-5 rounded-2xl border border-white/5 backdrop-blur-sm">
+                <div className="flex justify-between items-end mb-2">
+                   <span className="text-gray-400 text-xs font-bold uppercase">Meta Diária</span>
+                   <span className="text-2xl font-black text-white">{plan.dailyTargets.calories} <span className="text-sm font-normal text-gray-500">kcal</span></span>
+                </div>
+                
+                <div className="space-y-3">
+                   {/* Protein Bar */}
+                   <div>
+                      <div className="flex justify-between text-[10px] uppercase font-bold text-gray-500 mb-1">
+                         <span>Proteína</span>
+                         <span className="text-red-400">{plan.dailyTargets.protein}g</span>
+                      </div>
+                      <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+                         <div className="h-full bg-red-500 w-3/4 rounded-full shadow-[0_0_10px_#ef4444]"></div>
+                      </div>
+                   </div>
+                   {/* Carbs Bar */}
+                   <div>
+                      <div className="flex justify-between text-[10px] uppercase font-bold text-gray-500 mb-1">
+                         <span>Carboidratos</span>
+                         <span className="text-blue-400">{plan.dailyTargets.carbs}g</span>
+                      </div>
+                      <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+                         <div className="h-full bg-blue-500 w-1/2 rounded-full shadow-[0_0_10px_#3b82f6]"></div>
+                      </div>
+                   </div>
+                   {/* Fats Bar */}
+                   <div>
+                      <div className="flex justify-between text-[10px] uppercase font-bold text-gray-500 mb-1">
+                         <span>Gorduras</span>
+                         <span className="text-yellow-400">{plan.dailyTargets.fats}g</span>
+                      </div>
+                      <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+                         <div className="h-full bg-yellow-500 w-1/4 rounded-full shadow-[0_0_10px_#eab308]"></div>
+                      </div>
+                   </div>
+                </div>
+             </div>
+          </div>
+       </div>
 
-      {/* --- TAB: OVERVIEW --- */}
-      {activeTab === 'overview' && (
-         <div className="space-y-4 animate-fade-in">
-            {/* Macros Chart */}
-            <div className="bg-black/40 border border-white/10 rounded-2xl p-6">
-               <h3 className="text-white font-bold mb-4">Distribuição de Macros</h3>
-               <div className="h-48 w-full flex items-center justify-center">
-                  <ResponsiveContainer width="100%" height="100%">
-                     <RePie data={macroData} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-                        {macroData.map((entry, index) => (
-                           <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
-                        ))}
-                     </RePie>
-                  </ResponsiveContainer>
-                  <div className="absolute text-center">
-                     <p className="text-xs text-gray-400">Total</p>
-                     <p className="text-xl font-bold text-white">100%</p>
-                  </div>
-               </div>
-               <div className="flex justify-between mt-4 text-center">
-                  {macroData.map(m => (
-                     <div key={m.name}>
-                        <div className="w-3 h-3 rounded-full mx-auto mb-1" style={{backgroundColor: m.color}}></div>
-                        <p className="text-xs text-gray-400">{m.name}</p>
-                        <p className="text-lg font-bold text-white">{m.value}g</p>
-                     </div>
-                  ))}
-               </div>
-            </div>
-
-            {/* TDEE Explanation */}
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
-               <h3 className="text-white font-bold mb-2 flex items-center gap-2">
-                   <Calculator size={16} className="text-red-500" /> Como calculamos?
-               </h3>
-               <p className="text-sm text-gray-300 leading-relaxed">
-                  Baseado no seu perfil ({user.weight}kg, {user.goal}), seu metabolismo basal é de aprox. 
-                  <span className="text-white font-bold"> {Math.round(plan.dailyTargets.calories * 0.7)} kcal</span>. 
-                  Adicionamos o gasto do treino e o ajuste para seu objetivo.
-               </p>
-            </div>
-
-             {/* Supplements */}
-            <div className="bg-blue-900/20 border border-blue-500/30 rounded-2xl p-4">
-               <h3 className="text-blue-400 font-bold mb-2 flex items-center gap-2">
-                   <TrendingDown size={16} /> Suplementação Sugerida
-               </h3>
-               <ul className="space-y-2">
-                  {plan.supplements.map((sup, idx) => (
-                      <li key={idx} className="flex items-center gap-2 text-sm text-blue-100">
-                          <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div> {sup}
-                      </li>
-                  ))}
-               </ul>
-            </div>
-         </div>
-      )}
-
-      {/* --- TAB: MEALS --- */}
-      {activeTab === 'meals' && (
-          <div className="space-y-4 animate-fade-in">
-             {plan.meals.map((meal, idx) => (
-                 <div key={idx} className="bg-white/5 border border-white/10 rounded-2xl p-5 hover:border-red-500/30 transition-colors group">
-                    <div className="flex justify-between items-start mb-3">
-                       <div>
-                          <span className="text-xs font-bold text-red-500 uppercase tracking-wide">{meal.name}</span>
-                          <h4 className="text-lg font-bold text-white">{meal.description}</h4>
-                       </div>
-                       <button 
-                         onClick={() => handleSwapMeal(meal, idx)}
-                         disabled={swappingMealId === meal.id}
-                         className="p-2 text-gray-500 hover:text-white hover:bg-white/10 rounded-lg transition-all"
-                         title="Trocar Refeição"
-                       >
-                          {swappingMealId === meal.id ? <RefreshCcw size={18} className="animate-spin"/> : <RefreshCcw size={18}/>}
-                       </button>
-                    </div>
-
-                    <div className="flex gap-4 text-xs text-gray-300 mb-4 bg-black/20 p-3 rounded-xl">
-                        <div className="flex flex-col">
-                            <span className="text-[10px] text-gray-500 uppercase">Calorias</span>
-                            <span className="font-bold text-white">{meal.macros.calories}</span>
-                        </div>
-                        <div className="flex flex-col">
-                            <span className="text-[10px] text-gray-500 uppercase">Prot</span>
-                            <span className="font-bold text-white">{meal.macros.protein}g</span>
-                        </div>
-                        <div className="flex flex-col">
-                            <span className="text-[10px] text-gray-500 uppercase">Carb</span>
-                            <span className="font-bold text-white">{meal.macros.carbs}g</span>
-                        </div>
-                        <div className="flex flex-col">
-                            <span className="text-[10px] text-gray-500 uppercase">Gord</span>
-                            <span className="font-bold text-white">{meal.macros.fats}g</span>
-                        </div>
-                    </div>
-
-                    <div className="space-y-3">
-                       <div>
-                          <p className="text-xs text-gray-400 font-bold mb-1">INGREDIENTES:</p>
-                          <p className="text-sm text-gray-200">{meal.ingredients.join(', ')}</p>
-                       </div>
-                       <div>
-                          <p className="text-xs text-gray-400 font-bold mb-1">PREPARO:</p>
-                          <p className="text-sm text-gray-300 italic">"{meal.preparation}"</p>
-                       </div>
-                    </div>
-                 </div>
+       {/* TABS NAVIGATION */}
+       <div className="flex justify-center">
+          <div className="bg-black/40 p-1.5 rounded-2xl border border-white/10 inline-flex gap-1 backdrop-blur-md">
+             {[
+               { id: 'daily', label: 'Cardápio Diário', icon: Utensils },
+               { id: 'weekly', label: 'Visão Semanal', icon: Calendar },
+               { id: 'shopping', label: 'Lista de Compras', icon: ShoppingCart }
+             ].map((tab) => (
+                <button
+                   key={tab.id}
+                   onClick={() => setActiveTab(tab.id as any)}
+                   className={`flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-all ${
+                      activeTab === tab.id
+                        ? 'bg-gradient-to-r from-red-600 to-pink-600 text-white shadow-lg'
+                        : 'text-gray-400 hover:text-white hover:bg-white/5'
+                   }`}
+                >
+                   <tab.icon size={16} /> <span className="hidden md:inline">{tab.label}</span>
+                </button>
              ))}
           </div>
-      )}
+       </div>
 
-      {/* --- TAB: HYDRATION --- */}
-      {activeTab === 'hydration' && (
-          <div className="space-y-8 animate-fade-in py-8 text-center">
-             <div className="relative w-48 h-48 mx-auto">
-                 {/* Water Circle Background */}
-                 <div className="absolute inset-0 rounded-full border-4 border-blue-900/30 bg-blue-900/10 overflow-hidden">
-                     <div 
-                        className="absolute bottom-0 left-0 w-full bg-blue-500 transition-all duration-700 ease-out"
-                        style={{ height: `${Math.min((waterIntake / plan.waterTarget) * 100, 100)}%`, opacity: 0.6 }}
-                     >
-                        <div className="w-full h-2 bg-blue-400 animate-pulse"></div>
-                     </div>
-                 </div>
-                 
-                 <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
-                     <Droplets size={32} className={waterIntake >= plan.waterTarget ? "text-blue-300" : "text-blue-500"} />
-                     <h3 className="text-3xl font-black text-white mt-2">{waterIntake}<span className="text-sm font-normal text-gray-400">ml</span></h3>
-                     <p className="text-xs text-gray-400">Meta: {plan.waterTarget}ml</p>
-                 </div>
+       {/* CONTEÚDO DAS ABAS */}
+       
+       {/* 1. VISÃO DIÁRIA (CARDS PREMIUM) */}
+       {activeTab === 'daily' && (
+          <div className="grid grid-cols-1 gap-6 max-w-4xl mx-auto animate-fade-in">
+             {plan.meals.map((meal, idx) => {
+                const isExpanded = expandedMeal === meal.id;
+                
+                return (
+                   <div 
+                      key={idx} 
+                      className={`relative bg-gradient-to-br from-[#1a0505] to-black rounded-3xl border transition-all duration-300 overflow-hidden group ${
+                         isExpanded ? 'border-red-500/50 shadow-2xl shadow-red-900/20' : 'border-white/5 hover:border-white/20'
+                      }`}
+                   >
+                      {/* Side Highlight */}
+                      <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-red-600 to-pink-600"></div>
+
+                      <div className="p-6 md:p-8">
+                         <div className="flex flex-col md:flex-row gap-6 items-start">
+                            
+                            {/* Icon/Image Placeholder */}
+                            <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-black/50 border border-white/10 flex items-center justify-center shrink-0 shadow-inner">
+                               <span className="text-3xl">
+                                  {meal.type === 'breakfast' ? '🍳' : (meal.type === 'lunch' || meal.type === 'dinner' ? '🍗' : '🍎')}
+                               </span>
+                            </div>
+
+                            {/* Info Principal */}
+                            <div className="flex-1 w-full">
+                               <div className="flex justify-between items-start mb-2">
+                                  <div>
+                                     <span className="text-xs font-bold text-red-500 uppercase tracking-wider mb-1 block">{meal.name}</span>
+                                     <h3 className="text-xl md:text-2xl font-black text-white leading-tight">{meal.description}</h3>
+                                  </div>
+                                  <button 
+                                     onClick={(e) => handleSwapMeal(meal, idx, e)}
+                                     disabled={swappingMealId === meal.id}
+                                     className="p-2 bg-white/5 rounded-xl hover:bg-white/10 text-gray-400 hover:text-white transition-colors border border-white/5"
+                                     title="Trocar Alimento"
+                                  >
+                                     <RefreshCcw size={18} className={swappingMealId === meal.id ? "animate-spin text-red-500" : ""} />
+                                  </button>
+                               </div>
+
+                               {/* Macros Grid */}
+                               <div className="flex flex-wrap gap-4 text-xs mt-3">
+                                  <div className="flex items-center gap-1.5 bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">
+                                     <Flame size={14} className="text-orange-500" />
+                                     <span className="font-bold text-white">{meal.macros.calories} kcal</span>
+                                  </div>
+                                  <div className="flex gap-3 text-gray-400">
+                                     <span><b className="text-white">{meal.macros.protein}g</b> Prot</span>
+                                     <span><b className="text-white">{meal.macros.carbs}g</b> Carb</span>
+                                     <span><b className="text-white">{meal.macros.fats}g</b> Gord</span>
+                                  </div>
+                               </div>
+                            </div>
+                         </div>
+
+                         {/* Action Footer */}
+                         <div className="mt-6 flex items-center justify-between border-t border-white/5 pt-4">
+                            <button 
+                               onClick={() => setExpandedMeal(isExpanded ? null : meal.id)}
+                               className="flex items-center gap-2 text-sm font-bold text-gray-300 hover:text-white transition-colors"
+                            >
+                               {isExpanded ? 'Ocultar Detalhes' : 'Ver Ingredientes e Preparo'}
+                               <ChevronRight size={16} className={`transition-transform duration-300 ${isExpanded ? 'rotate-90' : ''}`} />
+                            </button>
+                            <span className="text-xs font-bold text-green-400 bg-green-900/20 px-2 py-1 rounded">R$ ~{(meal.costEstimate).toFixed(2)}</span>
+                         </div>
+
+                         {/* Expanded Content */}
+                         {isExpanded && (
+                            <div className="mt-6 space-y-4 animate-fade-in bg-black/20 p-4 rounded-xl border border-white/5">
+                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div>
+                                     <h4 className="text-red-400 font-bold text-xs uppercase mb-2 flex items-center gap-2">
+                                        <ShoppingCart size={14}/> Lista de Ingredientes
+                                     </h4>
+                                     <ul className="space-y-1">
+                                        {meal.ingredients.map((ing, i) => (
+                                           <li key={i} className="text-gray-300 text-sm flex items-start gap-2">
+                                              <span className="w-1.5 h-1.5 bg-red-500 rounded-full mt-1.5 shrink-0"></span>
+                                              {ing}
+                                           </li>
+                                        ))}
+                                     </ul>
+                                  </div>
+                                  <div>
+                                     <h4 className="text-red-400 font-bold text-xs uppercase mb-2 flex items-center gap-2">
+                                        <ChefHat size={14}/> Modo de Preparo
+                                     </h4>
+                                     <p className="text-gray-300 text-sm italic leading-relaxed">"{meal.preparation}"</p>
+                                  </div>
+                               </div>
+                            </div>
+                         )}
+                      </div>
+                   </div>
+                );
+             })}
+          </div>
+       )}
+
+       {/* 2. VISÃO SEMANAL (GRID TABLE) */}
+       {activeTab === 'weekly' && (
+          <div className="animate-fade-in">
+             <div className="bg-[#111] border border-white/10 rounded-3xl overflow-hidden">
+                <div className="p-6 border-b border-white/10 flex justify-between items-center bg-black/40">
+                   <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                      <Calendar className="text-red-500" /> Planejamento Semanal
+                   </h3>
+                   <button className="flex items-center gap-2 bg-white/5 hover:bg-white/10 text-white px-4 py-2 rounded-xl text-sm font-bold transition-colors">
+                      <Download size={16} /> Baixar PDF
+                   </button>
+                </div>
+                
+                <div className="overflow-x-auto">
+                   <div className="min-w-[800px] p-6">
+                      <div className="grid grid-cols-7 gap-4 text-center mb-4">
+                         {['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SAB', 'DOM'].map(d => (
+                            <div key={d} className="text-gray-500 font-bold text-xs bg-white/5 py-2 rounded-lg">{d}</div>
+                         ))}
+                      </div>
+                      
+                      {/* Simulação visual de variação para a semana (usando a dieta base) */}
+                      <div className="space-y-2">
+                         {['Café', 'Almoço', 'Lanche', 'Jantar'].map((mealName, rIdx) => (
+                            <div key={rIdx} className="grid grid-cols-7 gap-4">
+                               {Array.from({length: 7}).map((_, cIdx) => (
+                                  <div key={cIdx} className="bg-black/40 border border-white/5 p-3 rounded-xl min-h-[100px] flex flex-col justify-between hover:border-red-500/30 transition-colors group cursor-pointer">
+                                     <span className="text-[10px] text-gray-500 font-bold uppercase block mb-1">{mealName}</span>
+                                     <p className="text-white text-xs font-bold leading-tight">
+                                        {plan.meals[rIdx]?.description || "Refeição Livre"}
+                                     </p>
+                                     <div className="mt-2 h-1 w-full bg-gray-800 rounded-full overflow-hidden opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div className="h-full bg-red-500 w-3/4"></div>
+                                     </div>
+                                  </div>
+                               ))}
+                            </div>
+                         ))}
+                      </div>
+                   </div>
+                </div>
+             </div>
+          </div>
+       )}
+
+       {/* 3. SHOPPING LIST (ADVANCED) */}
+       {activeTab === 'shopping' && (
+          <div className="max-w-4xl mx-auto animate-fade-in space-y-6">
+             <div className="bg-gradient-to-r from-green-900/30 to-black border border-green-500/20 p-6 rounded-2xl flex items-start gap-4">
+                <div className="p-3 bg-green-500/20 rounded-xl text-green-400">
+                   <TrendingDown size={24} />
+                </div>
+                <div>
+                   <h3 className="text-green-400 font-bold text-lg">Economia Inteligente</h3>
+                   <p className="text-green-100/80 text-sm mt-1">
+                      Comprando no <b>{marketType === 'local' ? 'Feira Local' : (marketType === 'organic' ? 'Empório' : 'Supermercado')}</b>, você economiza cerca de 15% nos vegetais desta lista.
+                   </p>
+                </div>
              </div>
 
-             <div className="flex justify-center gap-4">
-                 <button onClick={removeWater} className="p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-white transition-colors">
-                     <Minus size={24} />
-                 </button>
-                 <button onClick={addWater} className="p-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-900/50 transition-transform active:scale-95">
-                     <Plus size={24} /> <span className="text-xs font-bold block">250ml</span>
-                 </button>
+             <div className="bg-[#1a0505] rounded-3xl border border-white/10 overflow-hidden">
+                <div className="p-6 border-b border-white/10 bg-black/20 flex justify-between items-center">
+                   <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                      <ShoppingCart className="text-red-500" /> Lista Consolidada
+                   </h3>
+                   <div className="text-right">
+                      <span className="text-xs text-gray-500 uppercase block">Total Estimado</span>
+                      <span className="text-xl font-bold text-white">R$ {plan.totalCost.toFixed(2)}</span>
+                   </div>
+                </div>
+
+                <div className="divide-y divide-white/5">
+                   {plan.shoppingList.map((item, idx) => {
+                      const isChecked = checkedItems.has(item);
+                      // Simulação de preço por item
+                      const estimatedItemPrice = (Math.random() * 15 + 2).toFixed(2); 
+
+                      return (
+                         <div 
+                           key={idx} 
+                           onClick={() => toggleItem(item)}
+                           className={`p-5 flex items-center gap-4 cursor-pointer transition-all hover:bg-white/5 ${isChecked ? 'bg-black/40 opacity-50' : ''}`}
+                         >
+                            <div className={`w-6 h-6 rounded-lg border flex items-center justify-center transition-colors ${
+                               isChecked ? 'bg-red-600 border-red-600 text-white' : 'border-gray-600 text-transparent hover:border-red-500'
+                            }`}>
+                               <CheckSquare size={14} />
+                            </div>
+                            
+                            <div className="flex-1">
+                               <p className={`text-sm font-bold transition-all ${isChecked ? 'text-gray-500 line-through' : 'text-white'}`}>
+                                  {item}
+                               </p>
+                               <span className="text-xs text-gray-500">Seção: Mercearia</span>
+                            </div>
+
+                            <div className="text-right">
+                               <span className="text-xs font-bold text-gray-400 block">~R$ {estimatedItemPrice}</span>
+                            </div>
+                         </div>
+                      );
+                   })}
+                </div>
              </div>
              
-             <div className="bg-blue-900/20 p-4 rounded-xl max-w-xs mx-auto border border-blue-500/20">
-                <p className="text-sm text-blue-200">
-                   💡 Beba água logo ao acordar para ativar seu metabolismo.
-                </p>
+             <div className="text-center pt-4 pb-8">
+                <button 
+                    onClick={() => setViewState('config')}
+                    className="text-gray-500 hover:text-white text-sm flex items-center justify-center gap-2 mx-auto transition-colors"
+                >
+                    <Settings size={14} /> Reconfigurar Preferências
+                </button>
              </div>
           </div>
-      )}
-
-      {/* --- TAB: SHOPPING --- */}
-      {activeTab === 'shopping' && (
-          <div className="space-y-6 animate-fade-in">
-              <div className="bg-green-900/20 border border-green-500/30 p-4 rounded-xl flex gap-3 items-start">
-                 <TrendingDown className="text-green-400 shrink-0" size={20} />
-                 <div>
-                    <h4 className="text-green-400 font-bold text-sm mb-1">Dicas de Economia</h4>
-                    <ul className="text-xs text-green-100 list-disc list-inside space-y-1">
-                        {plan.savingsTips.map((tip, i) => <li key={i}>{tip}</li>)}
-                    </ul>
-                 </div>
-              </div>
-
-              <div className="bg-white/5 rounded-2xl border border-white/10 overflow-hidden">
-                  <div className="p-4 bg-black/20 border-b border-white/5 flex justify-between items-center">
-                     <h3 className="text-white font-bold flex items-center gap-2">
-                        <ShoppingCart size={18} className="text-red-500"/> Lista de Compras
-                     </h3>
-                     <span className="text-xs text-gray-500">{checkedItems.size}/{plan.shoppingList.length} itens</span>
-                  </div>
-                  <div className="divide-y divide-white/5">
-                      {plan.shoppingList.map((item, idx) => {
-                          const isChecked = checkedItems.has(item);
-                          return (
-                              <div 
-                                key={idx} 
-                                onClick={() => toggleItem(item)}
-                                className={`p-4 flex items-center gap-3 cursor-pointer transition-colors hover:bg-white/5 ${isChecked ? 'bg-black/20' : ''}`}
-                              >
-                                  <div className={`text-red-500 transition-all ${isChecked ? 'opacity-50' : 'opacity-100'}`}>
-                                      {isChecked ? <CheckSquare size={20} /> : <Square size={20} />}
-                                  </div>
-                                  <span className={`text-sm transition-all ${isChecked ? 'text-gray-600 line-through' : 'text-gray-200'}`}>
-                                      {item}
-                                  </span>
-                              </div>
-                          );
-                      })}
-                  </div>
-              </div>
-          </div>
-      )}
+       )}
     </div>
   );
 };

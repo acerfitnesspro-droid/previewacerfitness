@@ -1,4 +1,5 @@
-import { UserProfile, WeeklyWorkoutPlan, DietPlan, Exercise, Meal, UserGoal, UserLevel } from "../types";
+
+import { UserProfile, WeeklyWorkoutPlan, DietPlan, Exercise, Meal, UserGoal, UserLevel, UserGender } from "../types";
 
 // --- BANCO DE DADOS ESTÁTICO DE EXERCÍCIOS (EXPANDIDO) ---
 interface DBExercise {
@@ -43,6 +44,9 @@ const EXERCISE_DB: DBExercise[] = [
   { id: 'stiff', name: 'Stiff com Barra/Halter', group: 'Pernas', type: 'Compound', locations: ['Academia', 'Casa'], difficulty: [UserLevel.INTERMEDIATE], gifUrl: "https://i.giphy.com/media/l2JeaXSlN7al98Kn6/giphy.gif", baseWeight: 20 },
   { id: 'calf_raise', name: 'Elevação de Panturrilha em Pé', group: 'Pernas', type: 'Isolation', locations: ['Academia', 'Casa', 'Ar Livre'], difficulty: [UserLevel.BEGINNER], gifUrl: "https://media.giphy.com/media/3o7abKhOpu0NwenH3O/giphy.gif", baseWeight: 0 },
   { id: 'sumo_squat', name: 'Agachamento Sumô', group: 'Pernas', type: 'Compound', locations: ['Academia', 'Casa'], difficulty: [UserLevel.INTERMEDIATE], gifUrl: "https://media.giphy.com/media/l0HlPtbGpcnqa0fXA/giphy.gif", baseWeight: 16 },
+  { id: 'hip_thrust', name: 'Elevação Pélvica', group: 'Pernas', type: 'Compound', locations: ['Academia', 'Casa'], difficulty: [UserLevel.BEGINNER, UserLevel.INTERMEDIATE], gifUrl: "https://media.giphy.com/media/3o7TKUM3IgJBX2as9O/giphy.gif", baseWeight: 20 },
+  { id: 'abductor', name: 'Cadeira Abdutora', group: 'Pernas', type: 'Isolation', locations: ['Academia'], difficulty: [UserLevel.BEGINNER], gifUrl: "https://media.giphy.com/media/3o7TKUM3IgJBX2as9O/giphy.gif", baseWeight: 30 },
+  { id: 'glute_kickback', name: 'Glúteo no Cabo/Caneleira', group: 'Pernas', type: 'Isolation', locations: ['Academia', 'Casa'], difficulty: [UserLevel.BEGINNER], gifUrl: "https://media.giphy.com/media/3o7TKUM3IgJBX2as9O/giphy.gif", baseWeight: 5 },
 
   // --- OMBROS (SHOULDERS) ---
   { id: 'overhead_press_barbell', name: 'Desenvolvimento Militar', group: 'Ombros', type: 'Compound', locations: ['Academia'], difficulty: [UserLevel.INTERMEDIATE], gifUrl: "https://i.giphy.com/media/3o6ZtpWvwnhf34Oj0A/giphy.gif", baseWeight: 10 },
@@ -81,6 +85,7 @@ const getInstructions = (name: string): string => {
   if (name.includes("Puxada") || name.includes("Barra")) return "1. Segure firme na barra.\n2. Puxe o corpo/barra até a altura do queixo.\n3. Imagine que está levando os cotovelos para baixo.\n4. Desça devagar, controlando o peso.";
   if (name.includes("Rosca") || name.includes("Curl")) return "1. Mantenha os cotovelos colados ao corpo.\n2. Suba a carga contraindo o bíceps.\n3. Não balance o tronco.\n4. Desça devagar.";
   if (name.includes("Tríceps")) return "1. Trave os cotovelos (não deixe eles abrirem).\n2. Estenda o braço completamente.\n3. Segure 1 segundo na contração máxima.\n4. Volte controlando.";
+  if (name.includes("Elevação Pélvica") || name.includes("Glute")) return "1. Apoie as escápulas no banco ou deite no chão.\n2. Coloque o peso no quadril.\n3. Suba o quadril contraindo forte os glúteos no topo.\n4. Desça sem tocar o chão.";
   return "1. Mantenha a postura alinhada e o abdômen contraído.\n2. Execute o movimento com controle (2s para subir, 2s para descer).\n3. Respire: solte o ar na força, puxe na descida.\n4. Concentre-se no músculo alvo.";
 };
 
@@ -207,21 +212,38 @@ export const generateWeeklyWorkout = async (profile: UserProfile): Promise<Weekl
   // Definição da Estrutura de Treino
   let splitStructure: { name: string; focus: string; groups: string[] }[] = [];
   
-  // Iniciante: Full Body ou Upper/Lower básico
+  // Lógica de Gênero: Ajuste sutil de foco para objetivos estéticos padrão
+  const isFemaleFocus = profile.gender === UserGender.FEMALE && 
+                       (profile.goal === UserGoal.DEFINITION || profile.goal === UserGoal.GAIN_MUSCLE || profile.goal === UserGoal.LOSE_WEIGHT);
+  
+  // Iniciante
   if (profile.level === UserLevel.BEGINNER) {
-    splitStructure = [
-      { name: 'Treino A - Full Body', focus: 'Adaptação', groups: ['Pernas', 'Costas', 'Peito', 'Ombros', 'Abdômen'] },
-      { name: 'Descanso', focus: 'Recuperação', groups: [] },
-      { name: 'Treino B - Full Body', focus: 'Força Geral', groups: ['Pernas', 'Peito', 'Costas', 'Bíceps', 'Tríceps'] },
-      { name: 'Descanso', focus: 'Recuperação', groups: [] },
-      { name: 'Treino C - Funcional/Cardio', focus: 'Condicionamento', groups: ['Cardio', 'Abdômen', 'Pernas', 'Ombros', 'Cardio'] },
-      { name: 'Descanso', focus: 'Recuperação', groups: [] },
-      { name: 'Descanso', focus: 'Recuperação', groups: [] }
-    ];
+    if (isFemaleFocus) {
+        // Mulheres iniciantes: Foco um pouco maior em membros inferiores/glúteo no Full Body
+        splitStructure = [
+            { name: 'Treino A - Full Body (Ênfase Perna)', focus: 'Adaptação', groups: ['Pernas', 'Pernas', 'Costas', 'Ombros', 'Abdômen'] },
+            { name: 'Descanso', focus: 'Recuperação', groups: [] },
+            { name: 'Treino B - Full Body (Ênfase Superior)', focus: 'Força Geral', groups: ['Peito', 'Costas', 'Pernas', 'Tríceps', 'Bíceps'] },
+            { name: 'Descanso', focus: 'Recuperação', groups: [] },
+            { name: 'Treino C - Glúteo e Cardio', focus: 'Condicionamento', groups: ['Pernas', 'Pernas', 'Abdômen', 'Cardio', 'Cardio'] },
+            { name: 'Descanso', focus: 'Recuperação', groups: [] },
+            { name: 'Descanso', focus: 'Recuperação', groups: [] }
+        ];
+    } else {
+        // Padrão / Masculino
+        splitStructure = [
+            { name: 'Treino A - Full Body', focus: 'Adaptação', groups: ['Pernas', 'Costas', 'Peito', 'Ombros', 'Abdômen'] },
+            { name: 'Descanso', focus: 'Recuperação', groups: [] },
+            { name: 'Treino B - Full Body', focus: 'Força Geral', groups: ['Pernas', 'Peito', 'Costas', 'Bíceps', 'Tríceps'] },
+            { name: 'Descanso', focus: 'Recuperação', groups: [] },
+            { name: 'Treino C - Funcional/Cardio', focus: 'Condicionamento', groups: ['Cardio', 'Abdômen', 'Pernas', 'Ombros', 'Cardio'] },
+            { name: 'Descanso', focus: 'Recuperação', groups: [] },
+            { name: 'Descanso', focus: 'Recuperação', groups: [] }
+        ];
+    }
   } 
-  // Intermediário/Avançado: ABC ou ABCD
+  // Intermediário/Avançado
   else {
-     // Se for "Casa", adaptamos para não pedir muitos isoladores específicos
      if (profile.location === 'Casa') {
         splitStructure = [
             { name: 'Treino A - Empurrar (Push)', focus: 'Peito/Ombro/Tríceps', groups: ['Peito', 'Peito', 'Ombros', 'Ombros', 'Tríceps'] },
@@ -233,15 +255,29 @@ export const generateWeeklyWorkout = async (profile: UserProfile): Promise<Weekl
             { name: 'Descanso', focus: 'Recuperação', groups: [] }
         ];
      } else {
-        splitStructure = [
-            { name: 'Treino A - Peito e Tríceps', focus: 'Força de Empurrar', groups: ['Peito', 'Peito', 'Peito', 'Tríceps', 'Tríceps'] },
-            { name: 'Treino B - Costas e Bíceps', focus: 'Força de Puxar', groups: ['Costas', 'Costas', 'Costas', 'Bíceps', 'Bíceps'] },
-            { name: 'Treino C - Pernas Completo', focus: 'Hipertrofia Perna', groups: ['Pernas', 'Pernas', 'Pernas', 'Pernas', 'Pernas'] },
-            { name: 'Descanso', focus: 'Recuperação', groups: [] },
-            { name: 'Treino D - Ombros e Abs', focus: 'Deltóides', groups: ['Ombros', 'Ombros', 'Ombros', 'Abdômen', 'Abdômen'] },
-            { name: 'Treino E - Cardio/Correção', focus: 'Gasto Calórico', groups: ['Cardio', 'Cardio', 'Abdômen'] }, 
-            { name: 'Descanso', focus: 'Recuperação', groups: [] }
-        ];
+        if (isFemaleFocus) {
+            // Divisão com ênfase em inferiores (Glute Focus Split)
+            splitStructure = [
+                { name: 'Treino A - Glúteos e Posterior', focus: 'Cadeia Posterior', groups: ['Pernas', 'Pernas', 'Pernas', 'Pernas', 'Abdômen'] },
+                { name: 'Treino B - Superiores Completo', focus: 'Tônus Superior', groups: ['Costas', 'Ombros', 'Ombros', 'Peito', 'Tríceps'] },
+                { name: 'Treino C - Quadríceps e Panturrilha', focus: 'Pernas Anterior', groups: ['Pernas', 'Pernas', 'Pernas', 'Pernas', 'Pernas'] },
+                { name: 'Descanso', focus: 'Recuperação', groups: [] },
+                { name: 'Treino D - Glúteo Isolado e Abs', focus: 'Volume Glúteo', groups: ['Pernas', 'Pernas', 'Pernas', 'Abdômen', 'Abdômen'] },
+                { name: 'Treino E - Cardio e Ombros', focus: 'Detalhes', groups: ['Ombros', 'Ombros', 'Cardio', 'Cardio'] },
+                { name: 'Descanso', focus: 'Recuperação', groups: [] }
+            ];
+        } else {
+            // Divisão Clássica (Bro Split / ABCDE)
+            splitStructure = [
+                { name: 'Treino A - Peito e Tríceps', focus: 'Força de Empurrar', groups: ['Peito', 'Peito', 'Peito', 'Tríceps', 'Tríceps'] },
+                { name: 'Treino B - Costas e Bíceps', focus: 'Força de Puxar', groups: ['Costas', 'Costas', 'Costas', 'Bíceps', 'Bíceps'] },
+                { name: 'Treino C - Pernas Completo', focus: 'Hipertrofia Perna', groups: ['Pernas', 'Pernas', 'Pernas', 'Pernas', 'Pernas'] },
+                { name: 'Descanso', focus: 'Recuperação', groups: [] },
+                { name: 'Treino D - Ombros e Abs', focus: 'Deltóides', groups: ['Ombros', 'Ombros', 'Ombros', 'Abdômen', 'Abdômen'] },
+                { name: 'Treino E - Cardio/Correção', focus: 'Gasto Calórico', groups: ['Cardio', 'Cardio', 'Abdômen'] }, 
+                { name: 'Descanso', focus: 'Recuperação', groups: [] }
+            ];
+        }
      }
   }
 
@@ -268,8 +304,8 @@ export const generateWeeklyWorkout = async (profile: UserProfile): Promise<Weekl
   });
 
   return {
-    title: `Protocolo ${profile.goal} (${profile.level})`,
-    overview: `Ficha técnica otimizada para ${profile.location}. Foco em progressão de carga nos exercícios compostos.`,
+    title: `Protocolo ${profile.goal}`,
+    overview: `Ficha técnica otimizada para ${profile.location} (${profile.gender === UserGender.FEMALE ? 'Foco Específico' : 'Padrão'}). Foco em progressão.`,
     split
   };
 };
@@ -344,16 +380,44 @@ export const generateDiet = async (profile: UserProfile, budget: number, period:
   await new Promise(resolve => setTimeout(resolve, 800));
 
   // Mifflin-St Jeor Equation
-  const bmr = 10 * profile.weight + 6.25 * profile.height - 5 * profile.age + 5;
+  // Homens: (10 × peso) + (6,25 × altura) - (5 × idade) + 5
+  // Mulheres: (10 × peso) + (6,25 × altura) - (5 × idade) - 161
+  
+  let sParam = 5; // Default Male
+  if (profile.gender === UserGender.FEMALE) {
+      sParam = -161;
+  }
+  
+  const bmr = 10 * profile.weight + 6.25 * profile.height - 5 * profile.age + sParam;
+
   let activityFactor = 1.4;
   if (profile.level === UserLevel.ADVANCED) activityFactor = 1.6;
   
   let tdee = Math.round(bmr * activityFactor);
-  if (profile.goal === UserGoal.LOSE_WEIGHT) tdee -= 400;
-  if (profile.goal === UserGoal.GAIN_MUSCLE) tdee += 300;
-  if (profile.goal === UserGoal.DEFINITION) tdee -= 200;
+  
+  // Lógica de Ajuste Calórico baseada nos Novos Objetivos
+  const goal = profile.goal;
+  
+  if ([UserGoal.LOSE_WEIGHT, UserGoal.DEFINITION, UserGoal.EVENT_PREP].includes(goal)) {
+    tdee -= 400; // Déficit
+  } else if ([UserGoal.GAIN_MUSCLE, UserGoal.STRENGTH_GAIN, UserGoal.ATHLETIC_PERFORMANCE].includes(goal)) {
+    tdee += 300; // Superávit
+  } else if ([UserGoal.DEFINITION].includes(goal)) {
+    tdee -= 200; // Déficit Leve
+  } else {
+    // Manutenção / Recomposição / Saúde / Mobilidade / Pós Lesão
+    // Mantém o TDEE normal (Manutenção)
+  }
 
-  const proteinG = Math.round(profile.weight * (profile.goal === UserGoal.GAIN_MUSCLE ? 2.2 : 1.8));
+  // Ajuste de Proteína baseado no objetivo
+  let proteinMultiplier = 1.8;
+  if ([UserGoal.GAIN_MUSCLE, UserGoal.STRENGTH_GAIN, UserGoal.DEFINITION].includes(goal)) {
+      proteinMultiplier = 2.2;
+  } else if ([UserGoal.LOSE_WEIGHT, UserGoal.RECOMPOSITION].includes(goal)) {
+      proteinMultiplier = 2.0; // Alta proteína na perda de peso ajuda a segurar massa
+  }
+
+  const proteinG = Math.round(profile.weight * proteinMultiplier);
   const fatG = Math.round(profile.weight * 0.9);
   
   const dailyBudget = period === 'Mensal' ? budget / 30 : (period === 'Semanal' ? budget / 7 : budget);
@@ -406,7 +470,7 @@ export const generateDiet = async (profile: UserProfile, budget: number, period:
     savingsTips: ["Compre a granel", "Prefira marcas locais", "Evite industrializados"],
     dailyTargets: { calories: tdee, protein: proteinG, carbs: Math.round((tdee - (proteinG*4 + fatG*9))/4), fats: fatG },
     waterTarget: Math.round(profile.weight * 40),
-    supplements: profile.goal === UserGoal.GAIN_MUSCLE ? ["Creatina", "Whey"] : ["Multivitamínico"]
+    supplements: [UserGoal.GAIN_MUSCLE, UserGoal.STRENGTH_GAIN].includes(goal) ? ["Creatina", "Whey"] : ["Multivitamínico"]
   };
 };
 

@@ -7,17 +7,15 @@ const storedKey = typeof window !== 'undefined' ? localStorage.getItem('acer_sup
 const envUrl = process.env.SUPABASE_URL;
 const envKey = process.env.SUPABASE_ANON_KEY;
 
-// URL e Key fornecidas
-const defaultUrl = 'https://fxigmkiyxreloymhmhag.supabase.co';
-// Nota: 'sb_publishable_' não é o formato padrão de chaves anon (que começam com eyJ...), 
-// mas estamos usando conforme fornecido. Se falhar, a UI de Configuração permitirá ajuste.
+// URL e Key fornecidas pelo usuário
+const defaultUrl = 'https://fxigmkiyxreloymhmhag.supabase.co'; 
 const defaultKey = 'sb_publishable_HsqLnIFUEm5ae52SysMmWw_QY1DSM4T';
 
 // A URL real a ser usada
 export const activeSupabaseUrl = storedUrl || envUrl || defaultUrl;
 export const activeSupabaseKey = storedKey || envKey || defaultKey;
 
-// Se não tiver URL válida, usamos valores placeholder
+// Se não tiver URL válida, usamos valores placeholder para não quebrar a inicialização do client
 const clientUrl = activeSupabaseUrl || 'https://placeholder.supabase.co';
 const clientKey = activeSupabaseKey || 'placeholder-key';
 
