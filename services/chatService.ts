@@ -27,14 +27,14 @@ export const fetchMessages = async (userId: string, channel: ChatChannel): Promi
   }));
 };
 
-export const sendMessage = async (userId: string, channel: ChatChannel, content: string): Promise<ChatMessage | null> => {
+export const sendMessage = async (userId: string, channel: ChatChannel, content: string, isFromUser: boolean = true): Promise<ChatMessage | null> => {
   const { data, error } = await supabase
     .from('chat_messages')
     .insert({
       user_id: userId,
       channel: channel,
       content: content,
-      is_from_user: true // Sempre true quando enviado pelo app do cliente
+      is_from_user: isFromUser
     })
     .select()
     .single();

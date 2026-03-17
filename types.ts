@@ -51,6 +51,14 @@ export interface UserProfile {
   budget?: number;
   affiliateId?: string; // Quem indicou este usuário
   planType?: PlanType; // Define o acesso aos recursos (Chats)
+  
+  // Novos campos para Contexto de Elite
+  restrictions?: string; // Lesões, dores, limitações físicas
+  routine?: string; // Horário de trabalho, deslocamento, sono
+  availableTimeMinutes?: number; // Tempo disponível por treino
+  equipmentAccess?: 'Completo' | 'Apenas Halteres' | 'Peso do Corpo';
+  dietaryPreferences?: string[]; // O que gosta/não gosta de comer
+  disciplineLevel?: number; // 1 a 10 (auto-avaliação)
 }
 
 export interface Exercise {
@@ -72,12 +80,25 @@ export interface WorkoutDay {
   focus: string;
   exercises: Exercise[];
   duration: string;
+  completed?: boolean;
 }
 
 export interface WeeklyWorkoutPlan {
+  weekNumber: number;
   title: string;
   overview: string;
   split: WorkoutDay[];
+}
+
+export interface WorkoutProgram {
+  id: string;
+  userId: string;
+  title: string;
+  description: string;
+  weeks: WeeklyWorkoutPlan[];
+  currentWeek: number;
+  active: boolean;
+  createdAt: string;
 }
 
 export interface Macros {
@@ -96,9 +117,11 @@ export interface Meal {
   ingredients: string[];
   preparation: string;
   type: 'breakfast' | 'lunch' | 'snack' | 'dinner';
+  completed?: boolean;
 }
 
 export interface DietPlan {
+  weekNumber: number;
   totalCost: number;
   period: 'Diário' | 'Semanal' | 'Mensal';
   meals: Meal[];
@@ -107,6 +130,16 @@ export interface DietPlan {
   dailyTargets: Macros;
   waterTarget: number; 
   supplements: string[];
+}
+
+export interface DietProgram {
+  id: string;
+  userId: string;
+  title: string;
+  weeks: DietPlan[];
+  currentWeek: number;
+  active: boolean;
+  createdAt: string;
 }
 
 // --- CHAT REAL ---

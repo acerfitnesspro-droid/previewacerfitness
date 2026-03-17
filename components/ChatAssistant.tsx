@@ -1,8 +1,10 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { UserProfile, PlanType, ChatMessage } from '../types';
+import { UserProfile, PlanType, ChatMessage, WorkoutProgram, DietProgram } from '../types';
 import { fetchMessages, sendMessage, subscribeToChat, ChatChannel } from '../services/chatService';
-import { Send, User, Dumbbell, Utensils, Lock, ShieldCheck, Clock } from 'lucide-react';
+import { generateAIResponse } from '../services/aiChatService';
+import { fetchActivePrograms } from '../services/geminiService';
+import { Send, User, Dumbbell, Utensils, Lock, ShieldCheck, Clock, Loader2 } from 'lucide-react';
 
 interface Props {
   user: UserProfile;
@@ -13,6 +15,9 @@ const ChatAssistant: React.FC<Props> = ({ user }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [activeWorkout, setActiveWorkout] = useState<WorkoutProgram | null>(null);
+  const [activeDiet, setActiveDiet] = useState<DietProgram | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Determine Access based on Plan
@@ -31,14 +36,19 @@ const ChatAssistant: React.FC<Props> = ({ user }) => {
   useEffect(() => {
     if (!user.id) return;
 
-    const loadHistory = async () => {
+    const loadData = async () => {
         setLoading(true);
-        const history = await fetchMessages(user.id!, activeAgent);
+        const [history, programs] = await Promise.all([
+            fetchMessages(user.id!, activeAgent),
+            fetchActivePrograms(user.id!)
+        ]);
         setMessages(history);
+        setActiveWorkout(programs.workout);
+        setActiveDiet(programs.diet);
         setLoading(false);
     };
 
-    loadHistory();
+    loadData();
 
     const subscription = subscribeToChat(user.id!, activeAgent, (newMsg) => {
         setMessages(prev => {
@@ -59,14 +69,15 @@ const ChatAssistant: React.FC<Props> = ({ user }) => {
   }, [messages]);
 
   const handleSend = async () => {
-    if (!input.trim() || !user.id) return;
+    if (!input.trim() || !user.id || aiLoading) return;
 
+    const userMessage = input;
     const tempId = Date.now().toString();
     const tempMsg: ChatMessage = {
       id: tempId,
       userId: user.id,
       channel: activeAgent,
-      content: input,
+      content: userMessage,
       isFromUser: true,
       createdAt: new Date().toISOString()
     };
@@ -74,9 +85,29 @@ const ChatAssistant: React.FC<Props> = ({ user }) => {
     // Otimisticamente adiciona à UI
     setMessages(prev => [...prev, tempMsg]);
     setInput('');
+    setAiLoading(true);
 
     // Envia para o backend
-    await sendMessage(user.id, activeAgent, tempMsg.content);
+    await sendMessage(user.id, activeAgent, userMessage);
+
+    // Gera resposta da IA
+    try {
+      const aiResponse = await generateAIResponse(
+        user,
+        activeAgent,
+        messages,
+        userMessage,
+        activeWorkout,
+        activeDiet
+      );
+      
+      // Salva resposta da IA no backend
+      await sendMessage(user.id, activeAgent, aiResponse, false);
+    } catch (error) {
+      console.error("Erro ao gerar resposta da IA:", error);
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   const isLocked = (activeAgent === 'TRAINER' && !canAccessTrainer) || (activeAgent === 'NUTRITIONIST' && !canAccessNutri);
@@ -176,11 +207,12 @@ const ChatAssistant: React.FC<Props> = ({ user }) => {
             />
             <button 
                 onClick={handleSend}
+                disabled={aiLoading}
                 className={`absolute right-2 p-2 rounded-lg text-white transition-colors ${
                     activeAgent === 'TRAINER' ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'
-                }`}
+                } disabled:opacity-50`}
             >
-                <Send size={20} />
+                {aiLoading ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
             </button>
             </div>
             <p className="text-center text-[10px] text-gray-500 mt-2 flex items-center justify-center gap-1">

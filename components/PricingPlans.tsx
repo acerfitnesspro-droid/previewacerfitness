@@ -24,11 +24,11 @@ const PricingPlans: React.FC<Props> = ({ onSelect, onBack }) => {
             <div className="p-3 bg-gray-800 w-14 h-14 rounded-xl flex items-center justify-center mb-6 group-hover:bg-red-600 transition-colors">
                 <Dumbbell className="text-white" size={28} />
             </div>
-            <h3 className="text-xl font-bold text-white">Foco no Treino</h3>
+            <h3 className="text-xl font-bold text-white">Plano Pro (Treino)</h3>
             <p className="text-gray-400 text-sm mb-6">Para quem quer apenas destruir na academia.</p>
             
             <div className="mb-8">
-               <span className="text-4xl font-black text-white">R$ 34,90</span>
+               <span className="text-4xl font-black text-white">R$ 39,90</span>
                <span className="text-gray-500 text-sm">/mês</span>
             </div>
 
@@ -54,11 +54,11 @@ const PricingPlans: React.FC<Props> = ({ onSelect, onBack }) => {
             <div className="p-3 bg-red-600 w-14 h-14 rounded-xl flex items-center justify-center mb-6">
                 <Crown className="text-white" size={28} />
             </div>
-            <h3 className="text-xl font-bold text-white">Transformação Total</h3>
+            <h3 className="text-xl font-bold text-white">Plano Elite (Total)</h3>
             <p className="text-red-100 text-sm mb-6">A solução completa para resultados rápidos.</p>
             
             <div className="mb-8">
-               <span className="text-5xl font-black text-white">R$ 47,90</span>
+               <span className="text-5xl font-black text-white">R$ 59,90</span>
                <span className="text-red-200 text-sm">/mês</span>
             </div>
 
@@ -66,7 +66,7 @@ const PricingPlans: React.FC<Props> = ({ onSelect, onBack }) => {
                <li className="flex items-center gap-3 text-white text-sm"><CheckCircle2 size={16} className="text-red-400"/> <strong>Tudo do Plano de Treino</strong></li>
                <li className="flex items-center gap-3 text-white text-sm"><CheckCircle2 size={16} className="text-red-400"/> <strong>Tudo do Plano de Dieta</strong></li>
                <li className="flex items-center gap-3 text-white text-sm"><CheckCircle2 size={16} className="text-red-400"/> Suporte Prioritário</li>
-               <li className="flex items-center gap-3 text-white text-sm"><CheckCircle2 size={16} className="text-red-400"/> Indique e Ganhe (R$ 10,00)</li>
+               <li className="flex items-center gap-3 text-white text-sm"><CheckCircle2 size={16} className="text-red-400"/> Indique e Ganhe (Comissão 20%+)</li>
             </ul>
 
             <button 
@@ -82,11 +82,11 @@ const PricingPlans: React.FC<Props> = ({ onSelect, onBack }) => {
             <div className="p-3 bg-gray-800 w-14 h-14 rounded-xl flex items-center justify-center mb-6 group-hover:bg-green-600 transition-colors">
                 <Utensils className="text-white" size={28} />
             </div>
-            <h3 className="text-xl font-bold text-white">Foco na Dieta</h3>
+            <h3 className="text-xl font-bold text-white">Plano Nutri (Dieta)</h3>
             <p className="text-gray-400 text-sm mb-6">Nutrição inteligente que cabe no bolso.</p>
             
             <div className="mb-8">
-               <span className="text-4xl font-black text-white">R$ 34,90</span>
+               <span className="text-4xl font-black text-white">R$ 39,90</span>
                <span className="text-gray-500 text-sm">/mês</span>
             </div>
 

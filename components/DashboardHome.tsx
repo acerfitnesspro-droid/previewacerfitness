@@ -1,12 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { UserProfile } from '../types';
 import { getAffiliateStats } from '../services/affiliateService';
-import { Zap, TrendingUp, Calendar, DollarSign, ArrowRight } from 'lucide-react';
+import { Zap, TrendingUp, Calendar, DollarSign, ArrowRight, CheckCircle2, Activity } from 'lucide-react';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
 interface Props {
   user: UserProfile;
   onChangeView: (view: 'workout' | 'diet' | 'affiliate') => void;
 }
+
+const data = [
+  { name: 'Sem 1', peso: 85 },
+  { name: 'Sem 2', peso: 84.2 },
+  { name: 'Sem 3', peso: 83.5 },
+  { name: 'Sem 4', peso: 82.8 },
+];
 
 const DashboardHome: React.FC<Props> = ({ user, onChangeView }) => {
   const [earnings, setEarnings] = useState<number>(0);
@@ -63,6 +71,61 @@ const DashboardHome: React.FC<Props> = ({ user, onChangeView }) => {
            </div>
            <h3 className="text-2xl font-bold text-white">R$ {user.budget}</h3>
            <p className="text-xs text-gray-400 mt-1">Orçamento Atual</p>
+        </div>
+      </div>
+
+      {/* Adherence & Progress */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+          <h3 className="text-white font-bold mb-4 flex items-center gap-2">
+            <CheckCircle2 className="text-green-500" size={18} /> Adesão Semanal
+          </h3>
+          <div className="space-y-4">
+            <div>
+              <div className="flex justify-between text-xs text-gray-400 mb-1">
+                <span>Treinos</span>
+                <span className="text-white font-bold">3/5</span>
+              </div>
+              <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden">
+                <div className="bg-red-600 h-full w-[60%]"></div>
+              </div>
+            </div>
+            <div>
+              <div className="flex justify-between text-xs text-gray-400 mb-1">
+                <span>Dieta</span>
+                <span className="text-white font-bold">85%</span>
+              </div>
+              <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden">
+                <div className="bg-green-600 h-full w-[85%]"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+          <h3 className="text-white font-bold mb-4 flex items-center gap-2">
+            <Activity className="text-blue-500" size={18} /> Evolução de Peso
+          </h3>
+          <div className="h-32 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={data}>
+                <defs>
+                  <linearGradient id="colorWeight" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
+                <XAxis dataKey="name" hide />
+                <YAxis hide domain={['dataMin - 2', 'dataMax + 2']} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #ffffff20', borderRadius: '8px' }}
+                  itemStyle={{ color: '#fff' }}
+                />
+                <Area type="monotone" dataKey="peso" stroke="#ef4444" fillOpacity={1} fill="url(#colorWeight)" strokeWidth={3} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </div>
 

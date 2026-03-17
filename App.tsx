@@ -19,7 +19,13 @@ const INITIAL_USER_TEMPLATE: UserProfile = {
   level: UserLevel.BEGINNER,
   location: 'Academia',
   budget: 50,
-  planType: PlanType.PLANO_TREINO_DIETA // Default fallback
+  planType: PlanType.PLANO_TREINO_DIETA,
+  restrictions: '',
+  routine: '',
+  availableTimeMinutes: 60,
+  equipmentAccess: 'Completo',
+  dietaryPreferences: [],
+  disciplineLevel: 7
 };
 
 const App: React.FC = () => {
@@ -85,7 +91,13 @@ const App: React.FC = () => {
           level: data.level as UserLevel,
           location: data.location as any,
           budget: data.budget,
-          planType: (data.plan_type as PlanType) || PlanType.PLANO_TREINO_DIETA
+          planType: (data.plan_type as PlanType) || PlanType.PLANO_TREINO_DIETA,
+          restrictions: data.restrictions || '',
+          routine: data.routine || '',
+          availableTimeMinutes: data.available_time_minutes || 60,
+          equipmentAccess: data.equipment_access as any || 'Completo',
+          dietaryPreferences: data.dietary_preferences || [],
+          disciplineLevel: data.discipline_level || 7
         });
         setView('home');
       } else {
@@ -117,8 +129,13 @@ const App: React.FC = () => {
           level: user.level,
           location: user.location,
           budget: user.budget,
-          // Mantém o plano que veio do cadastro (se existir no user state) ou usa o default
-          plan_type: user.planType 
+          plan_type: user.planType,
+          restrictions: user.restrictions,
+          routine: user.routine,
+          available_time_minutes: user.availableTimeMinutes,
+          equipment_access: user.equipmentAccess,
+          dietary_preferences: user.dietaryPreferences,
+          discipline_level: user.disciplineLevel
         });
 
       if (error) throw error;
@@ -170,80 +187,38 @@ const App: React.FC = () => {
       <div className="min-h-screen bg-gradient-to-br from-[#500000] via-[#D00000] to-[#FFC0CB] flex items-center justify-center p-6 font-inter">
         <div className="max-w-2xl w-full bg-black/30 backdrop-blur-xl p-8 rounded-3xl border border-white/10 shadow-2xl">
           <h1 className="text-4xl font-black text-white mb-2 tracking-tighter text-center">ACER FITNESS <span className="text-red-500">PRO</span></h1>
-          <p className="text-pink-200 mb-8 text-center">Vamos configurar seu perfil pessoal.</p>
+          <p className="text-pink-200 mb-8 text-center">Configuração de Perfil de Elite</p>
           
           {formStep === 0 && (
             <div className="space-y-5 animate-fade-in max-w-md mx-auto">
                <h2 className="text-xl text-white font-bold">Dados Pessoais</h2>
-               
                <input 
                  type="text" 
                  value={user.name}
                  onChange={e => setUser({...user, name: e.target.value})}
-                 className="w-full bg-white/10 border border-white/20 rounded-xl p-4 text-white placeholder-white/50 focus:outline-none focus:border-red-500 transition-colors"
+                 className="w-full bg-white/10 border border-white/20 rounded-xl p-4 text-white focus:border-red-500 focus:outline-none"
                  placeholder="Seu nome completo"
                />
-
-               <div>
-                 <label className="text-xs text-pink-200 ml-1 uppercase font-bold tracking-wider mb-2 block">Gênero Biológico</label>
-                 <div className="grid grid-cols-2 gap-3">
-                    {[
-                        { val: UserGender.MALE, label: 'Masculino', icon: User },
-                        { val: UserGender.FEMALE, label: 'Feminino', icon: UserCheck },
-                        { val: UserGender.OTHER, label: 'Outro', icon: User },
-                        { val: UserGender.PREFER_NOT_TO_SAY, label: 'Prefiro não', icon: User }
-                    ].map((opt) => (
-                        <button
-                            key={opt.val}
-                            onClick={() => setUser({...user, gender: opt.val})}
-                            className={`flex items-center gap-2 p-3 rounded-xl text-sm font-bold border transition-all group ${
-                                user.gender === opt.val 
-                                    ? 'bg-red-600 border-red-500 text-white shadow-lg shadow-red-900/30' 
-                                    : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white'
-                            }`}
-                        >
-                            <opt.icon size={16} className={user.gender === opt.val ? "text-white" : "text-gray-500 group-hover:text-white"} />
-                            <span className="truncate">{opt.label}</span>
-                        </button>
-                    ))}
-                 </div>
+               <div className="grid grid-cols-2 gap-3">
+                 {[
+                   { val: UserGender.MALE, label: 'Masculino' },
+                   { val: UserGender.FEMALE, label: 'Feminino' }
+                 ].map((opt) => (
+                   <button
+                     key={opt.val}
+                     onClick={() => setUser({...user, gender: opt.val})}
+                     className={`p-3 rounded-xl text-sm font-bold border transition-all ${user.gender === opt.val ? 'bg-red-600 border-red-500 text-white' : 'bg-white/5 border-white/10 text-gray-400'}`}
+                   >
+                     {opt.label}
+                   </button>
+                 ))}
                </div>
-
                <div className="grid grid-cols-3 gap-4">
-                 <div className="space-y-1">
-                    <label className="text-xs text-pink-200 ml-1">Idade</label>
-                    <input 
-                        type="number" 
-                        placeholder="Anos"
-                        value={user.age}
-                        onChange={e => setUser({...user, age: Number(e.target.value)})}
-                        className="w-full bg-white/10 border border-white/20 rounded-xl p-4 text-white focus:border-red-500 focus:outline-none"
-                    />
-                 </div>
-                 <div className="space-y-1">
-                    <label className="text-xs text-pink-200 ml-1">Peso (kg)</label>
-                    <input 
-                        type="number" 
-                        placeholder="kg"
-                        value={user.weight}
-                        onChange={e => setUser({...user, weight: Number(e.target.value)})}
-                        className="w-full bg-white/10 border border-white/20 rounded-xl p-4 text-white focus:border-red-500 focus:outline-none"
-                    />
-                 </div>
-                 <div className="space-y-1">
-                    <label className="text-xs text-pink-200 ml-1">Altura (cm)</label>
-                    <input 
-                        type="number" 
-                        placeholder="cm"
-                        value={user.height}
-                        onChange={e => setUser({...user, height: Number(e.target.value)})}
-                        className="w-full bg-white/10 border border-white/20 rounded-xl p-4 text-white focus:border-red-500 focus:outline-none"
-                    />
-                 </div>
+                 <input type="number" placeholder="Idade" value={user.age} onChange={e => setUser({...user, age: Number(e.target.value)})} className="w-full bg-white/10 border border-white/20 rounded-xl p-4 text-white" />
+                 <input type="number" placeholder="Peso" value={user.weight} onChange={e => setUser({...user, weight: Number(e.target.value)})} className="w-full bg-white/10 border border-white/20 rounded-xl p-4 text-white" />
+                 <input type="number" placeholder="Altura" value={user.height} onChange={e => setUser({...user, height: Number(e.target.value)})} className="w-full bg-white/10 border border-white/20 rounded-xl p-4 text-white" />
                </div>
-               <button onClick={() => setFormStep(1)} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl mt-4 transition-transform active:scale-95 shadow-lg shadow-red-900/50">
-                 Continuar
-               </button>
+               <button onClick={() => setFormStep(1)} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl mt-4">Continuar</button>
             </div>
           )}
 
@@ -252,74 +227,116 @@ const App: React.FC = () => {
                <h2 className="text-xl text-white font-bold text-center mb-4">Qual seu principal objetivo?</h2>
                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto pr-2 scrollbar-thin">
                  {Object.values(UserGoal).map((g) => (
-                   <button 
-                     key={g}
-                     onClick={() => setUser({...user, goal: g})}
-                     className={`p-4 rounded-xl text-left border transition-all ${
-                       user.goal === g 
-                        ? 'bg-red-600 border-red-500 text-white shadow-lg' 
-                        : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10 hover:text-white'
-                     }`}
-                   >
+                   <button key={g} onClick={() => setUser({...user, goal: g})} className={`p-4 rounded-xl text-left border transition-all ${user.goal === g ? 'bg-red-600 border-red-500 text-white' : 'bg-white/5 border-white/10 text-gray-300'}`}>
                      <span className="font-bold text-sm">{g}</span>
                    </button>
                  ))}
                </div>
                <div className="flex gap-2 mt-4 max-w-md mx-auto">
-                 <button onClick={() => setFormStep(0)} className="flex-1 bg-transparent border border-white/20 text-white font-bold py-4 rounded-xl hover:bg-white/5">Voltar</button>
-                 <button onClick={() => setFormStep(2)} className="flex-[2] bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl">Próximo</button>
+                 <button onClick={() => setFormStep(0)} className="flex-1 border border-white/20 text-white py-4 rounded-xl">Voltar</button>
+                 <button onClick={() => setFormStep(2)} className="flex-[2] bg-red-600 text-white py-4 rounded-xl">Próximo</button>
                </div>
              </div>
           )}
 
           {formStep === 2 && (
              <div className="space-y-4 animate-fade-in max-w-md mx-auto">
-               <h2 className="text-xl text-white font-bold">Onde você vai treinar?</h2>
+               <h2 className="text-xl text-white font-bold">Logística de Treino</h2>
                <div className="grid grid-cols-3 gap-2">
                  {['Casa', 'Academia', 'Ar Livre'].map((loc) => (
-                   <button 
-                     key={loc}
-                     onClick={() => setUser({...user, location: loc as any})}
-                     className={`p-3 rounded-xl text-center text-sm font-bold border transition-all ${
-                       user.location === loc 
-                        ? 'bg-red-600 border-red-500 text-white' 
-                        : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
-                     }`}
-                   >
-                     {loc}
-                   </button>
+                   <button key={loc} onClick={() => setUser({...user, location: loc as any})} className={`p-3 rounded-xl text-sm font-bold border ${user.location === loc ? 'bg-red-600 border-red-500 text-white' : 'bg-white/5 border-white/10 text-gray-300'}`}>{loc}</button>
                  ))}
                </div>
-               
-               <h2 className="text-xl text-white font-bold mt-4">Nível de experiência</h2>
-               <div className="grid grid-cols-3 gap-2">
+               <div className="grid grid-cols-3 gap-2 mt-4">
                  {Object.values(UserLevel).map((l) => (
-                   <button 
-                     key={l}
-                     onClick={() => setUser({...user, level: l})}
-                     className={`p-3 rounded-xl text-center text-sm font-bold border transition-all ${
-                       user.level === l 
-                        ? 'bg-red-600 border-red-500 text-white' 
-                        : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10'
-                     }`}
-                   >
-                     {l}
-                   </button>
+                   <button key={l} onClick={() => setUser({...user, level: l})} className={`p-3 rounded-xl text-sm font-bold border ${user.level === l ? 'bg-red-600 border-red-500 text-white' : 'bg-white/5 border-white/10 text-gray-300'}`}>{l}</button>
                  ))}
                </div>
-
-               <button 
-                  onClick={handleOnboardingSubmit} 
-                  disabled={isSavingProfile}
-                  className="w-full bg-gradient-to-r from-red-600 to-pink-600 text-white font-bold py-4 rounded-xl shadow-lg shadow-red-900/50 mt-6 text-lg disabled:opacity-50 flex justify-center"
-               >
-                 {isSavingProfile ? <Loader2 className="animate-spin" /> : 'Salvar e Iniciar'}
-               </button>
-               
-               <div className="flex justify-center mt-2">
-                 <button onClick={() => setFormStep(1)} className="text-gray-400 text-sm hover:text-white">Voltar</button>
+               <div className="flex gap-2 mt-6">
+                 <button onClick={() => setFormStep(1)} className="flex-1 border border-white/20 text-white py-4 rounded-xl">Voltar</button>
+                 <button onClick={() => setFormStep(3)} className="flex-[2] bg-red-600 text-white py-4 rounded-xl">Próximo</button>
                </div>
              </div>
+          )}
+
+          {formStep === 3 && (
+            <div className="space-y-4 animate-fade-in max-w-md mx-auto">
+              <h2 className="text-xl text-white font-bold">Sua Rotina Real</h2>
+              <textarea 
+                value={user.routine}
+                onChange={e => setUser({...user, routine: e.target.value})}
+                className="w-full bg-white/10 border border-white/20 rounded-xl p-4 text-white h-32"
+                placeholder="Ex: Trabalho das 08h às 18h, pego 1h de trânsito. Durmo às 23h."
+              />
+              <div className="space-y-2">
+                <label className="text-xs text-pink-200 font-bold uppercase">Tempo disponível por treino (minutos)</label>
+                <input 
+                  type="number" 
+                  value={user.availableTimeMinutes}
+                  onChange={e => setUser({...user, availableTimeMinutes: Number(e.target.value)})}
+                  className="w-full bg-white/10 border border-white/20 rounded-xl p-4 text-white"
+                />
+              </div>
+              <div className="flex gap-2 mt-6">
+                <button onClick={() => setFormStep(2)} className="flex-1 border border-white/20 text-white py-4 rounded-xl">Voltar</button>
+                <button onClick={() => setFormStep(4)} className="flex-[2] bg-red-600 text-white py-4 rounded-xl">Próximo</button>
+              </div>
+            </div>
+          )}
+
+          {formStep === 4 && (
+            <div className="space-y-4 animate-fade-in max-w-md mx-auto">
+              <h2 className="text-xl text-white font-bold">Limitações e Equipamento</h2>
+              <textarea 
+                value={user.restrictions}
+                onChange={e => setUser({...user, restrictions: e.target.value})}
+                className="w-full bg-white/10 border border-white/20 rounded-xl p-4 text-white h-24"
+                placeholder="Ex: Dor no joelho esquerdo, hérnia de disco L5-S1."
+              />
+              <div className="grid grid-cols-1 gap-2">
+                {['Completo', 'Apenas Halteres', 'Peso do Corpo'].map((eq) => (
+                  <button key={eq} onClick={() => setUser({...user, equipmentAccess: eq as any})} className={`p-4 rounded-xl text-left font-bold border ${user.equipmentAccess === eq ? 'bg-red-600 border-red-500 text-white' : 'bg-white/5 border-white/10 text-gray-300'}`}>{eq}</button>
+                ))}
+              </div>
+              <div className="flex gap-2 mt-6">
+                <button onClick={() => setFormStep(3)} className="flex-1 border border-white/20 text-white py-4 rounded-xl">Voltar</button>
+                <button onClick={() => setFormStep(5)} className="flex-[2] bg-red-600 text-white py-4 rounded-xl">Próximo</button>
+              </div>
+            </div>
+          )}
+
+          {formStep === 5 && (
+            <div className="space-y-4 animate-fade-in max-w-md mx-auto">
+              <h2 className="text-xl text-white font-bold">Disciplina e Dieta</h2>
+              <div className="space-y-2">
+                <label className="text-xs text-pink-200 font-bold uppercase flex justify-between">
+                  Nível de Disciplina (1-10)
+                  <span className="text-white">{user.disciplineLevel}</span>
+                </label>
+                <input 
+                  type="range" min="1" max="10" 
+                  value={user.disciplineLevel}
+                  onChange={e => setUser({...user, disciplineLevel: Number(e.target.value)})}
+                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-red-500"
+                />
+              </div>
+              <textarea 
+                value={user.dietaryPreferences?.join(', ')}
+                onChange={e => setUser({...user, dietaryPreferences: e.target.value.split(',').map(s => s.trim())})}
+                className="w-full bg-white/10 border border-white/20 rounded-xl p-4 text-white h-24"
+                placeholder="O que gosta/não gosta de comer? (Separado por vírgula)"
+              />
+              <button 
+                onClick={handleOnboardingSubmit} 
+                disabled={isSavingProfile}
+                className="w-full bg-gradient-to-r from-red-600 to-pink-600 text-white font-bold py-4 rounded-xl shadow-lg mt-6 flex justify-center"
+              >
+                {isSavingProfile ? <Loader2 className="animate-spin" /> : 'Finalizar Configuração'}
+              </button>
+              <div className="flex justify-center mt-2">
+                <button onClick={() => setFormStep(4)} className="text-gray-400 text-sm hover:text-white">Voltar</button>
+              </div>
+            </div>
           )}
           
            <div className="mt-4 text-center">

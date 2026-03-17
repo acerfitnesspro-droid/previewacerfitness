@@ -5,18 +5,25 @@ import { supabase } from "../lib/supabase";
 // --- CONSTANTES DE NEGÓCIO ---
 
 export const PLANS = {
-  [PlanType.PLANO_TREINO_DIETA]: { label: "Plano C (Treino + Dieta)", price: 47.90 },
-  [PlanType.PLANO_SOMENTE_TREINO]: { label: "Plano A (Só Treino)", price: 34.90 },
-  [PlanType.PLANO_SOMENTE_DIETA]: { label: "Plano B (Só Dieta)", price: 34.90 },
+  [PlanType.PLANO_TREINO_DIETA]: { label: "Plano Elite (Treino + Dieta)", price: 59.90 },
+  [PlanType.PLANO_SOMENTE_TREINO]: { label: "Plano Pro (Só Treino)", price: 39.90 },
+  [PlanType.PLANO_SOMENTE_DIETA]: { label: "Plano Nutri (Só Dieta)", price: 39.90 },
 };
-
-const FIXED_COMMISSION = 10.00;
 
 // --- LÓGICA DE CÁLCULO ---
 
+export const getCommissionRate = (level: AffiliateLevel): number => {
+  switch (level) {
+    case AffiliateLevel.OWNER: return 0.50; // 50%
+    case AffiliateLevel.MANAGER: return 0.35; // 35%
+    case AffiliateLevel.AFFILIATE: default: return 0.20; // 20%
+  }
+};
+
 export const calculateCommission = (planKey: PlanType, affiliateLevel: AffiliateLevel): number => {
-  // Valor único independente do nível ou plano
-  return FIXED_COMMISSION;
+  const plan = PLANS[planKey];
+  const rate = getCommissionRate(affiliateLevel);
+  return Number((plan.price * rate).toFixed(2));
 };
 
 // --- SERVIÇOS CONECTADOS AO SUPABASE ---

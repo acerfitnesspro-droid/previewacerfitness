@@ -50,13 +50,13 @@ const AffiliateDashboard: React.FC<Props> = ({ user }) => {
       <div className="flex flex-col md:flex-row justify-between items-end gap-4 bg-gradient-to-r from-[#1a0505] to-black p-6 rounded-3xl border border-white/10">
          <div>
             <div className="flex items-center gap-2 text-gray-400 text-xs font-bold uppercase tracking-widest mb-1">
-               <Briefcase size={14} className="text-red-500"/> Painel de Indicações
+               <Briefcase size={14} className="text-red-500"/> Painel de Indicações Elite
             </div>
             <h1 className="text-3xl font-black text-white italic uppercase">
-               INDIQUE E <span className="text-red-500">GANHE</span>
+               INDIQUE E <span className="text-red-500">LUCRE</span>
             </h1>
             <p className="text-gray-400 text-sm mt-2 max-w-md">
-               Envie seu link para amigos. A cada compra realizada através dele, você ganha uma comissão fixa de <strong>R$ 10,00</strong>.
+               Envie seu link para amigos. A cada compra realizada através dele, você ganha uma comissão de <strong>20% a 50%</strong> do valor do plano.
             </p>
          </div>
          <div className="bg-white/5 p-3 rounded-xl border border-white/10">
@@ -160,7 +160,7 @@ const AffiliateDashboard: React.FC<Props> = ({ user }) => {
          <div className="animate-fade-in bg-black/30 rounded-3xl border border-white/10 overflow-hidden">
             <div className="p-6 border-b border-white/10 flex justify-between items-center">
                <h3 className="text-lg font-bold text-white">Histórico de Indicações</h3>
-               <div className="text-xs text-gray-400">Comissão Fixa: <strong>R$ 10,00</strong></div>
+               <div className="text-xs text-gray-400">Comissão: <strong>Variável por Plano</strong></div>
             </div>
             <div className="overflow-x-auto">
                <table className="w-full text-left">
