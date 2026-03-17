@@ -5,7 +5,7 @@ import { generateWeeklyWorkout, swapExercise } from '../services/geminiService';
 import { supabase } from '../lib/supabase';
 import { 
   Dumbbell, Clock, MapPin, Activity, Play, CheckCircle, 
-  RotateCcw, Timer, ArrowLeft, History, Save, Trophy, X, Info, PlayCircle, RefreshCcw, AlertTriangle, ChevronDown, ChevronUp, Check
+  RotateCcw, Timer, ArrowLeft, History, Save, Trophy, X, Info, PlayCircle, RefreshCcw, AlertTriangle, ChevronDown, ChevronUp, Check, Calendar
 } from 'lucide-react';
 
 interface Props {
@@ -29,6 +29,10 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
   const [weightHistory, setWeightHistory] = useState<Record<string, number>>({});
   const [swappingExerciseId, setSwappingExerciseId] = useState<string | null>(null);
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
+  
+  // Exercise Specific History (Modal)
+  const [historyLogs, setHistoryLogs] = useState<any[]>([]);
+  const [modalTab, setModalTab] = useState<'info' | 'history'>('info');
 
   // Refs para scroll
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -58,6 +62,25 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plan]);
+
+  // Fetch logs when an exercise is selected for the modal
+  useEffect(() => {
+    if (selectedExercise && user.id) {
+       setModalTab('info');
+       const fetchSpecificHistory = async () => {
+          const { data } = await supabase
+            .from('workout_logs')
+            .select('created_at, weight, reps_performed, set_number')
+            .eq('user_id', user.id)
+            .eq('exercise_name', selectedExercise.name)
+            .order('created_at', { ascending: false })
+            .limit(15); // Últimos 15 registros
+          
+          if (data) setHistoryLogs(data);
+       };
+       fetchSpecificHistory();
+    }
+  }, [selectedExercise, user.id]);
 
   // Session Recovery & History Logic
   useEffect(() => {
@@ -331,7 +354,7 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
                 <X size={20} />
              </button>
              
-             <div className="h-64 bg-black relative flex items-center justify-center overflow-hidden group">
+             <div className="h-48 bg-black relative flex items-center justify-center overflow-hidden group">
                 {selectedExercise.gifUrl ? (
                    <img 
                      src={selectedExercise.gifUrl} 
@@ -350,34 +373,84 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
                 <div className="absolute bottom-0 left-0 w-full bg-gradient-to-t from-[#1a0505] to-transparent h-24"></div>
                 
                 <div className="absolute bottom-4 left-6 z-10 pr-4">
-                   <h3 className="text-2xl font-black text-white leading-none mb-1 shadow-black drop-shadow-sm">{selectedExercise.name}</h3>
+                   <h3 className="text-xl font-black text-white leading-none mb-1 shadow-black drop-shadow-sm">{selectedExercise.name}</h3>
                    <span className="text-red-500 bg-white/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wider rounded border border-white/10">{selectedExercise.muscleGroup}</span>
                 </div>
              </div>
              
-             <div className="p-6 relative z-10 max-h-[50vh] overflow-y-auto scrollbar-thin">
-                <div className="space-y-6">
-                   <div>
-                      <h4 className="text-white font-bold text-sm mb-3 flex items-center gap-2 border-b border-white/10 pb-2">
-                         <CheckCircle size={16} className="text-red-500" /> Execução
-                      </h4>
-                      <ul className="space-y-3">
-                         {selectedExercise.instructions.split('\n').map((step, i) => (
-                            <li key={i} className="text-gray-300 text-sm leading-relaxed flex gap-3">
-                               <span className="text-red-500 font-bold shrink-0">{i+1}.</span>
-                               <span>{step.replace(/^\d+\.\s*/, '')}</span>
-                            </li>
-                         ))}
-                      </ul>
+             {/* Modal Tabs */}
+             <div className="flex border-b border-white/10 px-6 pt-4 gap-6">
+                <button 
+                  onClick={() => setModalTab('info')}
+                  className={`pb-3 text-sm font-bold transition-all relative ${modalTab === 'info' ? 'text-white' : 'text-gray-500 hover:text-gray-300'}`}
+                >
+                   <div className="flex items-center gap-2"><Info size={16} /> Execução</div>
+                   {modalTab === 'info' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-red-600 shadow-[0_0_10px_#dc2626]"></div>}
+                </button>
+                <button 
+                  onClick={() => setModalTab('history')}
+                  className={`pb-3 text-sm font-bold transition-all relative ${modalTab === 'history' ? 'text-white' : 'text-gray-500 hover:text-gray-300'}`}
+                >
+                   <div className="flex items-center gap-2"><History size={16} /> Histórico</div>
+                   {modalTab === 'history' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-red-600 shadow-[0_0_10px_#dc2626]"></div>}
+                </button>
+             </div>
+
+             {/* Modal Content */}
+             <div className="p-6 relative z-10 max-h-[40vh] overflow-y-auto scrollbar-thin">
+                {modalTab === 'info' ? (
+                   <div className="space-y-6 animate-fade-in">
+                      <div>
+                         <h4 className="text-white font-bold text-sm mb-3 flex items-center gap-2">
+                            <CheckCircle size={16} className="text-red-500" /> Passo a Passo
+                         </h4>
+                         <ul className="space-y-3">
+                            {selectedExercise.instructions.split('\n').map((step, i) => (
+                               <li key={i} className="text-gray-300 text-sm leading-relaxed flex gap-3">
+                                  <span className="text-red-500 font-bold shrink-0">{i+1}.</span>
+                                  <span>{step.replace(/^\d+\.\s*/, '')}</span>
+                               </li>
+                            ))}
+                         </ul>
+                      </div>
+                      
+                      <div className="bg-red-900/20 p-4 rounded-xl border border-red-500/20">
+                         <h4 className="text-red-400 font-bold text-xs uppercase mb-1 flex items-center gap-1"><Info size={12}/> Dica Pro</h4>
+                         <p className="text-gray-300 text-sm italic">"{selectedExercise.tips}"</p>
+                      </div>
                    </div>
-                   
-                   <div className="bg-red-900/20 p-4 rounded-xl border border-red-500/20">
-                      <h4 className="text-red-400 font-bold text-xs uppercase mb-1 flex items-center gap-1"><Info size={12}/> Dica do Coach</h4>
-                      <p className="text-gray-300 text-sm italic">"{selectedExercise.tips}"</p>
+                ) : (
+                   <div className="space-y-3 animate-fade-in">
+                      {historyLogs.length === 0 ? (
+                         <div className="text-center py-8 text-gray-500">
+                            <History className="mx-auto mb-2 opacity-50" size={32} />
+                            <p className="text-sm">Nenhum registro encontrado.</p>
+                         </div>
+                      ) : (
+                         historyLogs.map((log, idx) => (
+                            <div key={idx} className="flex justify-between items-center bg-white/5 p-3 rounded-xl border border-white/5">
+                               <div className="flex items-center gap-3">
+                                  <div className="bg-white/5 p-2 rounded-lg">
+                                     <Calendar size={14} className="text-gray-400" />
+                                  </div>
+                                  <div>
+                                     <p className="text-white text-xs font-bold">{new Date(log.created_at).toLocaleDateString()}</p>
+                                     <p className="text-gray-500 text-[10px]">Série {log.set_number}</p>
+                                  </div>
+                               </div>
+                               <div className="text-right">
+                                  <p className="text-red-400 font-bold">{log.weight} kg</p>
+                                  <p className="text-gray-500 text-xs">{log.reps_performed} reps</p>
+                               </div>
+                            </div>
+                         ))
+                      )}
                    </div>
-                </div>
-                
-                <button onClick={() => setSelectedExercise(null)} className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold py-3 rounded-xl mt-6 transition-colors">
+                )}
+             </div>
+             
+             <div className="p-4 bg-black/40 border-t border-white/5">
+                <button onClick={() => setSelectedExercise(null)} className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold py-3 rounded-xl transition-colors">
                    Fechar
                 </button>
              </div>
@@ -508,7 +581,7 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
                               </button>
                               <button onClick={() => setSelectedExercise(exercise)} className="px-3 py-2.5 bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 rounded-xl transition-all flex items-center gap-2" title="Veja como executar">
                                  <Info size={18} />
-                                 <span className="text-xs font-bold">Veja como executar</span>
+                                 <span className="text-xs font-bold">Ver Detalhes</span>
                               </button>
                            </div>
                         </div>
