@@ -38,13 +38,22 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const fetchWorkout = async () => {
+    // Validação prévia de dados do perfil
+    if (!user.goal || !user.level || !user.location) {
+        console.warn("Perfil incompleto para geração de treino:", { goal: user.goal, level: user.level, location: user.location });
+        return;
+    }
+
     setLoading(true);
     try {
+        console.log("Solicitando geração de treino para:", user.name);
         const result = await generateWeeklyWorkout(user);
         if (result) {
+            console.log("Treino gerado com sucesso.");
             setPlan(result);
         } else {
             console.error("Geração retornou null");
+            // O fallback já é tratado no service, mas se retornar null aqui é erro grave
         }
     } catch (error) {
         console.error("Falha na geração:", error);
@@ -55,13 +64,13 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
 
   // Load plan and history
   useEffect(() => {
-    if (!plan) {
+    if (!plan && user.goal && user.level && user.location) {
       fetchWorkout();
-    } else {
+    } else if (plan) {
       fetchExerciseHistory();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [plan]);
+  }, [plan, user.goal, user.level, user.location]);
 
   // Fetch logs when an exercise is selected for the modal
   useEffect(() => {
@@ -468,6 +477,19 @@ const WorkoutDashboard: React.FC<Props> = ({ user }) => {
         </div>
         <h2 className="text-2xl font-black tracking-tighter">CRIANDO PROTOCOLO</h2>
         <p className="text-pink-200 mt-2 text-sm uppercase tracking-widest">IA analisando biomecânica...</p>
+      </div>
+    );
+  }
+
+  if (!user.goal || !user.level || !user.location) {
+    return (
+      <div className="text-center text-white p-10 flex flex-col items-center bg-[#111] rounded-3xl border border-white/10">
+        <div className="bg-amber-500/20 p-4 rounded-full mb-4">
+          <AlertTriangle size={48} className="text-amber-500" />
+        </div>
+        <h3 className="text-xl font-bold mb-2">Perfil Incompleto</h3>
+        <p className="text-gray-400 mb-6 max-w-xs">Precisamos que você complete seu objetivo, nível e local de treino para gerar sua periodização.</p>
+        <p className="text-sm text-gray-500 italic">Vá em Perfil para completar seus dados.</p>
       </div>
     );
   }
